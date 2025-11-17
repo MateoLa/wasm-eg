@@ -1,6 +1,6 @@
 <div align="center">
 
-	![WebAssembly](./wasm4.svg)
+	[<img src=./wasm4.svg width="150" height="150"></img>](WebAssembly)
 
 	<h3>WebAssembly</h3>
 
@@ -25,7 +25,7 @@ WebAssembly is designed to complement and run alongside JavaScript, sharing func
 
 * Install Emscripten
 If you want to generate example.js and example.wasm from example.c by your own. 
-`emcc example.c -o example.js 
+`emcc example.c -o example.js
 
 ### Run
 
