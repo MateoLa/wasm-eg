@@ -1,6 +1,6 @@
 <div align="center">
 
-	[<img src=./wasm4.svg width="150" height="150"></img>](WebAssembly)
+	![<img src=wasm4.svg width="150" height="150"></img>](WebAssembly)
 
 	<h3>WebAssembly</h3>
 
