@@ -1,10 +1,10 @@
 <div align="center">
 
-	![webAssembly](<img src=wasm4.svg width="150" height="150"/>)
+<img src=wasm4.svg width="150" height="150"/>
 
-	<h3>WebAssembly</h3>
+<h3>WebAssembly</h3>
 
-	<p>C++ WebAssembly compilation example</p>
+<p>C++ WebAssembly compilation example</p>
 
 </div>
 
