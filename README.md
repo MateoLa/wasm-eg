@@ -2,7 +2,7 @@
 
 <img src=wasm4.svg width="150" height="150"/>
 
-<h3>WebAssembly</h3>
+<h3>Simple WebAssembly Example</h3>
 
 <p>C++ WebAssembly compilation example</p>
 
@@ -24,8 +24,12 @@ WebAssembly is designed to complement and run alongside JavaScript, sharing func
 * Install Express (npm install express)
 
 * Install Emscripten
-If you want to generate example.js and example.wasm from example.c by your own. 
-`emcc example.c -o example.js
+If you want to generate example.js and example.wasm from example.c by your own: 
+
+```sh
+emcc example.c -o example.js -s EXPORTED_FUNCTIONS="['_add', '_greet']" -s MODULARIZE=1 
+```
+
 
 ### Run
 

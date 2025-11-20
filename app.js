@@ -9,7 +9,7 @@ app.use(express.urlencoded({extended: true}));
 
 
 app.get('/', (req, res) => {
-	res.sendFile(path.join(__dirname, '/test.html'));
+	res.sendFile(path.join(__dirname, '/example.html'));
 })
 
 app.get('/script.js', (req, res) => {
@@ -36,6 +36,6 @@ app.get('/example.js', (req, res) => {
 })
 
 app.listen(port, () => {
-	console.log("Testing WebAssembly javascript output glue code. Port: ", port)
+	console.log("Testing simple WebAssembly js integration. Port: ", port)
 })
 
