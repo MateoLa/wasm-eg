@@ -2,7 +2,7 @@
 
 <img src=wasm4.svg width="150" height="150"/>
 
-<h3>Simple WebAssembly Example</h3>
+<h3>Running C++ code into a Web Worker</h3>
 
 <p>C++ WebAssembly compilation example</p>
 
@@ -23,20 +23,30 @@ WebAssembly is designed to complement and run alongside JavaScript, sharing func
 * Install Node
 * Install Express (npm install express)
 
+
 * Install Emscripten
-If you want to generate example.js and example.wasm from example.c by your own: 
+(If you want to compile to .wasm and generate the .js "glue" code)
 
 ```sh
-emcc example.c -o example.js -s EXPORTED_FUNCTIONS="['_add', '_greet']" -s MODULARIZE=1 
+emcc example.cpp -o example.js -s EXPORTED_FUNCTIONS="['_add', '_greet']" -s MODULARIZE=1  --> ?
+
+emcc example.cpp -o example.js -s NO_EXIT_RUNTIME=1 -s "EXPORTED_RUNTIME_METHODS=['ccall']" -s MODULARIZE -s EXPORT_ES6  --> ?
 ```
 
 
 ### Run
 
-cd into wasm-eg directory.
+cd into wasm-eg directory and run:
 
 ```js
-node appTest.js
+node app.js
 ```
 
 Navigate to localhost:5002
+
+
+### Docs
+
+[Webassembly](/docs/webassembly.md)
+[Web Workers](/docs/web_workers.md)
+[Wasm Workers](/docs/wasm_workers.md)
