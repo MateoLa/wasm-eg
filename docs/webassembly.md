@@ -4,23 +4,31 @@ Browsers don't know how to run C code.
 WebAssembly is a W3C standard to facilitate high-performance applications on web pages.
 You can compile C/C++ into WebAssembly using a tool like Emscripten.
 
+hello.cpp:
 ```c
-#include <stdio.h>
+#include <iostream>
 
 int main() {
-    printf("Hello World\n");
+    std::cout << "Greetings from MaLa!!\n";
     return 0;
 }
 ```
 
 ```sh
-emcc hello.c -o hello.html
+emcc hello.cpp -o hello.html --emrun
 ```
 
-At this point in your source directory you should have:
-    The binary Wasm module code: hello.wasm
-    A JS file containing glue code to translate between the native C functions and JS: hello.js
-    An HTML file to load, compile, and instantiate your Wasm code in the browser: hello.html
+At tshis point in your source directory you should have:
+  * The binary Wasm module code: hello.wasm
+  * A hello.js file containing the glue code to link JS to the native C functions.
+  * An HTML file to load, compile, and instantiate your Wasm code in the browser: hello.html
+
+Emrun is a local web sever and test tool used to host and launch the compliled html and WebAssembly files.<br>
+Run:
+
+```sh
+emrun hello.html
+```
 
 ### Compiling to JavaScript
 

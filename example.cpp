@@ -2,7 +2,7 @@
 #include <emscripten/emscripten.h>
 
 int main() {
-    printf("Greetings extranger!!\n");
+    printf("Greetings from ML!!\n");
     return 0;
 }
 
