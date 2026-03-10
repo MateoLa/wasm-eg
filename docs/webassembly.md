@@ -30,7 +30,7 @@ Run:
 emrun hello.html
 ```
 
-### Compiling to JavaScript
+### Calling C++ funcitons from JavaScript
 
 Emscripten requires a large variety of JavaScript "glue" code to handle memory allocation, memory leaks, and a host of other problems.
 
@@ -117,7 +117,12 @@ document.getElementById("my-button").addEventListener("click", () => {
 ```
 This illustrates how ccall() is used to call the exported function.
 
-### Note
+
+#### Embind
+
+With emscripten version 4.0.20 and newer, Embind supports C++17 or newer.
+
+#### Note
 
 Extracted from https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/C_to_Wasm
 
