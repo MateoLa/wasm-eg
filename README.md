@@ -58,8 +58,6 @@ And that's it. We are using hello.js glue code to run C code into the browser.
 
 ### Calling C/C++ functions from Javascript
 
-#### Ping Pong example
-
 <div align="center">
 
 <img src="assets/pong.png" width="150" height="100"/>
@@ -80,21 +78,29 @@ emrun pong.html --no_emrun_detect
 The directory structure is as follows:
   - /original, the ping-pong game in its original JS and html files.
   - /start, the initial modifications to make the wasm module work
-  - /embind_classes, C++ functions and classes that can be linked with Emscripten 
+  - /embind_classes, C++ functions and classes can be linked with Emscripten
+  - /dom_control, defining JS functions inside C/C++ code
   - /final, 
 
-The JS glue code `pong_wasm.js` instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
-Read the first comments in any glue code to learn how to use this variable.<br>
-Here we use the 4th option. In `pong.html` we define the Module variable to execute render(). Then the glue code adds to it all the C++ functions and classes we going to use.
+`pong_wasm.js` instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.
+Read the comments at the begining of any JS glue code to learn how to use the variable.<br>
+Here we use the 4th option. In `pong.html` we define a Module variable to execute render(). Then the glue code adds to it all the C++ functions and classes we going to use.
 
 Note also that pong.html use Emscripten event `onRuntimeInitialized` to delay function calls until the Wasm artifact is fully loaded.
 
 
 #### Passing Complex Data with Embind
 
+Embind supports classes, pointers, arrays, smart pointers, memory views, inheritance and polymorphism.<br>
+
+Compare /start/pong.cpp and /embind_classes/pong.cpp and see how emscripten manage enums, value objects, classes and functions.
+
+You can also write JS functions inside C/C++. In /dom_control/pong.html we can see how the "<canvas>" tag has been removed and included bia "drawCanvas" a JS function inside C++ code. This type of js block must be declared using `EM_JS` emscripten tool. The function is executed calling "createInitialGameState()" in /dom_control/pong.cpp
 
 
+#### Memory Model
 
+The other way: C/C++ calling JS functions.
 
 
 
