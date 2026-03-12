@@ -56,13 +56,15 @@ emrun is a local web sever and test tool used to host and launch the compliled h
 And that's it. We are using hello.js glue code to run C code into the browser.
 
 
+### Calling C/C++ functions from Javascript
+
 #### Ping Pong example
 
 <div align="center">
 
-<img src="assets/pong.png" width="100" height="100"/>
+<img src="assets/pong.png" width="150" height="100"/>
 
-<h3>Calling C/C++ functions from Javascript</h3>
+<h4>Ping Pong example</h4>
 
 </div>
 
