@@ -2,9 +2,9 @@
 
 <img src="assets/wasm4.svg" width="150" height="150"/>
 
-<h3>Running C++ code into a browsers</h3>
+<h3>Running C/C++ in the Browser</h3>
 
-<p>C++ WebAssembly compilation examples</p>
+<p>WebAssembly examples</p>
 
 </div>
 
@@ -18,13 +18,13 @@ WebAssembly is designed to complement and run alongside JavaScript, sharing func
 
 #### Prerequisites
 
-* Install GCC/g++ compilers required to compile C++ programs in Linux
+Install GCC/g++ compilers required to compile C++ programs in Linux
 
 ```sh
 sudo apt install build-essential
 ```
 
-* Install or Update Emscripten
+Install or Update Emscripten
 
 ```sh
 git clone https://github.com/emscripten-core/emsdk.git  --> download Emscripten if you haven't already
@@ -56,15 +56,23 @@ emrun is a local web sever and test tool used to host and launch the compliled h
 And that's it. We are using hello.js glue code to run C code into the browser.
 
 
-#### Calling C++ funcitons from JavaScript
+#### Ping Pong example
 
-Starting with a ping-pong game, entirely based on JS in /original/pong.js, we will migrate some functions to pong.cpp and use them from there.
+<div align="center">
+
+<img src="assets/pong.png" width="100" height="100"/>
+
+<h3>Calling C/C++ functions from Javascript</h3>
+
+</div>
+
+From a Ping-Pong game entirely in JS (/original/pong.js), we will migrate some functions to pong.cpp and use them from there.
 
 To do this, we will use a tool called embind (part of the Emscripten toolchain, --bind option)
 
 ```sh
-emcc pong.cpp -o ppong.html --std=c++17 --emrun
-emrun pong.html
+emcc pong.cpp -o pong_wasm.js --std=c++17 --bind
+emrun pong.html --no_emrun_detect
 ```
 
 The directory structure is as follows:
@@ -73,14 +81,22 @@ The directory structure is as follows:
   - /embind_classes, C++ functions and classes that can be linked with Emscripten 
   - /final, 
 
-The JS glue code instantiates a variable `Module` that enables the use of all the functions, classes and options defined in C.<br>
-Read the first comments in any JS glue code to learn how to use this variable.<br>
-Here we use the 4th option. In `pong.html` we defined the variable Module to execute the render() function. Then the glue code adds to it all the C++ functions and classes.
+The JS glue code `pong_wasm.js` instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
+Read the first comments in any glue code to learn how to use this variable.<br>
+Here we use the 4th option. In `pong.html` we define the Module variable to execute render(). Then the glue code adds to it all the C++ functions and classes we going to use.
 
-Note also that pong.html use Emscripten event `onRuntimeInitialized` to delay function calls until the Wasm artifact is fully loaded. 
+Note also that pong.html use Emscripten event `onRuntimeInitialized` to delay function calls until the Wasm artifact is fully loaded.
 
 
-### Docs
+#### Passing Complex Data with Embind
+
+
+
+
+
+
+
+#### Docs
 
 [Webassembly](/docs/webassembly.md) <br>
 [Web Workers](/docs/web_workers.md) <br>

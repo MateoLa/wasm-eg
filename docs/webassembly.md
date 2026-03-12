@@ -1,7 +1,7 @@
 ### Compiling C/C++ to WebAssembly
 
-Browsers don't know how to run C code.
-WebAssembly is a W3C standard to facilitate high-performance applications on web pages.
+Browsers don't know how to run C code.<br>
+WebAssembly is a W3C standard to facilitate high-performance applications on web pages.<br>
 You can compile C/C++ into WebAssembly using a tool like Emscripten.
 
 hello.cpp:
@@ -23,8 +23,9 @@ At tshis point in your source directory you should have:
   * A hello.js file containing the glue code to link JS to the native C functions.
   * An HTML file to load, compile, and instantiate your Wasm code in the browser: hello.html
 
-Emrun is a local web sever and test tool used to host and launch the compliled html and WebAssembly files.<br>
-Run:
+Read the comments at the begining of the JS glue code to learn how to use the `Module` variable.<br>
+
+Emrun is a local web sever and test tool used to host and launch the compliled html and WebAssembly files.
 
 ```sh
 emrun hello.html
@@ -37,33 +38,33 @@ Emscripten requires a large variety of JavaScript "glue" code to handle memory a
 ```sh
 emcc -o hello.js hello.c -O3
 ```
-You could then incorporate this JavaScript file into your program. In your app's entry module, add:
+
+Alternatively, you can produce a factory module to work with node.js.
+
+
+```sh
+emcc -o hello.js hello.c -O3 -sMODULARIZE -sEXPORT_ES6
+```
+
+You could then incorporate this JavaScript file into your program.<br>
+In your app's entry module:
 
 ```js
 import "./hello.js";
 ```
 
-Alternatively, you can produce a factory module, which allows you to produce multiple instances of the module (by default the glue code loads the module globally, causing multiple instances to collide).
+This also enables to produce multiple instances of the module. By default the glue code loads the module globally, causing multiple instances to collide.
 
-* If your output file extension is .js and not .mjs, then you have to add the -sEXPORT_ES6 setting to output a JavaScript module.
+If your output extension is .js and not .mjs, then you have to add `-s EXPORT_ES6` to output a JavaScript module.
 
-```sh
-emcc -o hello.mjs hello.c -O3 -sMODULARIZE -sEXPORT_ES6
-```
 
-Then in your code import the factory and call it:
+### Calling C/C++ custom functions
 
-```js
-import createModule from "./hello.mjs";
+To call a function defined in C/C++ from JavaScript you can:
+  * Use Emscripten ccall() function and the EMSCRIPTEN_KEEPALIVE declaration
+  * Use Emscripten embind and the EMSCRIPTEN_BINDINGS declaration
 
-createModule().then((Module) => {
-  console.log("Wasm ready", Module);
-});
-```
-
-### Calling a custom function defined in C
-
-If you want to call a function defined in your C code from JavaScript, you can use the Emscripten ccall() function and the EMSCRIPTEN_KEEPALIVE declaration, which adds your functions to the exported functions list.
+This two alternatives adds the functions to the JS glue code exported functions list.
 
 ```c
 #include <stdio.h>
@@ -85,9 +86,10 @@ EXTERN EMSCRIPTEN_KEEPALIVE void myFunction(int argc, char ** argv) {
 }
 ```
 
-By default, Emscripten-generated code always just calls the main() function, and other functions are eliminated as dead code. Putting EMSCRIPTEN_KEEPALIVE before a function name stops this from happening. You also need to import the emscripten.h library to use EMSCRIPTEN_KEEPALIVE.
+By default Emscripten generated code calls the main() function and other functions are eliminated as dead code.<br>
+Adding EMSCRIPTEN_KEEPALIVE before a function name stops this from happening. 
 
-* We are including the #ifdef blocks so that if you are trying to include this in C++ code, the example will still work. Due to C versus C++ name mangling rules, this would otherwise break, but here we are setting it so that it treats it as an external C function if you are using C++.
+We are including the `#ifdef block` so that if you are trying to include this in C++ code, the example will still work. Due to C versus C++ name mangling rules, this would otherwise break. If you are using C++ the code will be treated as an external C function.
 
 ```sh
 emcc -o hello.js hello.c -s NO_EXIT_RUNTIME=1 -s "EXPORTED_RUNTIME_METHODS=['ccall']" -s MODULARIZE -s EXPORT_ES6
@@ -117,10 +119,6 @@ document.getElementById("my-button").addEventListener("click", () => {
 ```
 This illustrates how ccall() is used to call the exported function.
 
-
-#### Embind
-
-With emscripten version 4.0.20 and newer, Embind supports C++17 or newer.
 
 #### Note
 
