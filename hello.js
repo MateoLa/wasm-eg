@@ -1,4 +1,48 @@
 // include: shell.js
+// include: minimum_runtime_check.js
+(function() {
+  // "30.0.0" -> 300000
+  function humanReadableVersionToPacked(str) {
+    str = str.split('-')[0]; // Remove any trailing part from e.g. "12.53.3-alpha"
+    var vers = str.split('.').slice(0, 3);
+    while(vers.length < 3) vers.push('00');
+    vers = vers.map((n, i, arr) => n.padStart(2, '0'));
+    return vers.join('');
+  }
+  // 300000 -> "30.0.0"
+  var packedVersionToHumanReadable = n => [n / 10000 | 0, (n / 100 | 0) % 100, n % 100].join('.');
+
+  var TARGET_NOT_SUPPORTED = 2147483647;
+
+  // Note: We use a typeof check here instead of optional chaining using
+  // globalThis because older browsers might not have globalThis defined.
+  var currentNodeVersion = typeof process !== 'undefined' && process.versions?.node ? humanReadableVersionToPacked(process.versions.node) : TARGET_NOT_SUPPORTED;
+  if (currentNodeVersion < 160000) {
+    throw new Error(`This emscripten-generated code requires node v${ packedVersionToHumanReadable(160000) } (detected v${packedVersionToHumanReadable(currentNodeVersion)})`);
+  }
+
+  var userAgent = typeof navigator !== 'undefined' && navigator.userAgent;
+  if (!userAgent) {
+    return;
+  }
+
+  var currentSafariVersion = userAgent.includes("Safari/") && !userAgent.includes("Chrome/") && userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/) ? humanReadableVersionToPacked(userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/)[1]) : TARGET_NOT_SUPPORTED;
+  if (currentSafariVersion < 150000) {
+    throw new Error(`This emscripten-generated code requires Safari v${ packedVersionToHumanReadable(150000) } (detected v${currentSafariVersion})`);
+  }
+
+  var currentFirefoxVersion = userAgent.match(/Firefox\/(\d+(?:\.\d+)?)/) ? parseFloat(userAgent.match(/Firefox\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
+  if (currentFirefoxVersion < 79) {
+    throw new Error(`This emscripten-generated code requires Firefox v79 (detected v${currentFirefoxVersion})`);
+  }
+
+  var currentChromeVersion = userAgent.match(/Chrome\/(\d+(?:\.\d+)?)/) ? parseFloat(userAgent.match(/Chrome\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
+  if (currentChromeVersion < 85) {
+    throw new Error(`This emscripten-generated code requires Chrome v85 (detected v${currentChromeVersion})`);
+  }
+})();
+
+// end include: minimum_runtime_check.js
 // The Module object: Our interface to the outside world. We import
 // and export values on it. There are various ways Module can be used:
 // 1. Not defined. We create it here
@@ -18,27 +62,30 @@ var Module = typeof Module != 'undefined' ? Module : {};
 // setting the ENVIRONMENT setting at compile time (see settings.js).
 
 // Attempt to auto-detect the environment
-var ENVIRONMENT_IS_WEB = typeof window == 'object';
-var ENVIRONMENT_IS_WORKER = typeof WorkerGlobalScope != 'undefined';
+var ENVIRONMENT_IS_WEB = !!globalThis.window;
+var ENVIRONMENT_IS_WORKER = !!globalThis.WorkerGlobalScope;
 // N.b. Electron.js environment is simultaneously a NODE-environment, but
 // also a web environment.
-var ENVIRONMENT_IS_NODE = typeof process == 'object' && process.versions?.node && process.type != 'renderer';
+var ENVIRONMENT_IS_NODE = globalThis.process?.versions?.node && globalThis.process?.type != 'renderer';
 var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
+// include: pre.js
+Module['print'] = function(text) { console.log('stdout: ' + text) };
+// end include: pre.js
 // include: /home/mateo/emsdk/upstream/emscripten/src/emrun_prejs.js
 /**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
  *
- * This file gets implicatly injected as a `--pre-js` file when
+ * This file gets implicitly injected as a `--pre-js` file when
  * emcc is run with `--emrun`
  */
 
 // Route URL GET parameters to argc+argv
-if (typeof window == 'object') {
+if (globalThis.window) {
   Module['arguments'] = window.location.search.slice(1).trim().split('&');
   for (let i = 0; i < Module['arguments'].length; ++i) {
     Module['arguments'][i] = decodeURI(Module['arguments'][i]);
@@ -59,7 +106,7 @@ var quit_ = (status, toThrow) => {
 
 // In MODULARIZE mode _scriptName needs to be captured already at the very top of the page immediately when the page is parsed, so it is generated there
 // before the page load. In non-MODULARIZE modes generate it here.
-var _scriptName = typeof document != 'undefined' ? document.currentScript?.src : undefined;
+var _scriptName = globalThis.document?.currentScript?.src;
 
 if (typeof __filename != 'undefined') { // Node
   _scriptName = __filename;
@@ -81,19 +128,12 @@ function locateFile(path) {
 var readAsync, readBinary;
 
 if (ENVIRONMENT_IS_NODE) {
-  const isNode = typeof process == 'object' && process.versions?.node && process.type != 'renderer';
+  const isNode = globalThis.process?.versions?.node && globalThis.process?.type != 'renderer';
   if (!isNode) throw new Error('not compiled for this environment (did you build to HTML and try to run it not on the web, or set ENVIRONMENT to something - like node - and run it someplace else - like on the web?)');
-
-  var nodeVersion = process.versions.node;
-  var numericVersion = nodeVersion.split('.').slice(0, 3);
-  numericVersion = (numericVersion[0] * 10000) + (numericVersion[1] * 100) + (numericVersion[2].split('-')[0] * 1);
-  if (numericVersion < 160000) {
-    throw new Error('This emscripten-generated code requires node v16.0.0 (detected v' + nodeVersion + ')');
-  }
 
   // These modules will usually be used on Node.js. Load them eagerly to avoid
   // the complexity of lazy-loading.
-  var fs = require('fs');
+  var fs = require('node:fs');
 
   scriptDirectory = __dirname + '/';
 
@@ -133,9 +173,6 @@ readAsync = async (filename, binary = true) => {
 } else
 if (ENVIRONMENT_IS_SHELL) {
 
-  const isNode = typeof process == 'object' && process.versions?.node && process.type != 'renderer';
-  if (isNode || typeof window == 'object' || typeof WorkerGlobalScope != 'undefined') throw new Error('not compiled for this environment (did you build to HTML and try to run it not on the web, or set ENVIRONMENT to something - like node - and run it someplace else - like on the web?)');
-
 } else
 
 // Note that this includes Node.js workers when relevant (pthreads is enabled).
@@ -149,7 +186,7 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
     // infer anything from them.
   }
 
-  if (!(typeof window == 'object' || typeof WorkerGlobalScope != 'undefined')) throw new Error('not compiled for this environment (did you build to HTML and try to run it not on the web, or set ENVIRONMENT to something - like node - and run it someplace else - like on the web?)');
+  if (!(globalThis.window || globalThis.WorkerGlobalScope)) throw new Error('not compiled for this environment (did you build to HTML and try to run it not on the web, or set ENVIRONMENT to something - like node - and run it someplace else - like on the web?)');
 
   {
 // include: web_or_worker_shell_read.js
@@ -230,7 +267,7 @@ assert(!ENVIRONMENT_IS_SHELL, 'shell environment detected but not enabled at bui
 
 var wasmBinary;
 
-if (typeof WebAssembly != 'object') {
+if (!globalThis.WebAssembly) {
   err('no native wasm support detected');
 }
 
@@ -245,7 +282,7 @@ if (typeof WebAssembly != 'object') {
 var ABORT = false;
 
 // set by exit() and abort().  Passed to 'onExit' handler.
-// NOTE: This is also used as the process return code code in shell environments
+// NOTE: This is also used as the process return code in shell environments
 // but only when noExitRuntime is false.
 var EXITSTATUS;
 
@@ -333,7 +370,7 @@ function dbg(...args) {
   var h16 = new Int16Array(1);
   var h8 = new Int8Array(h16.buffer);
   h16[0] = 0x6373;
-  if (h8[0] !== 0x73 || h8[1] !== 0x63) throw 'Runtime error: expected the system to be little-endian! (Run with -sSUPPORT_BIG_ENDIAN to bypass)';
+  if (h8[0] !== 0x73 || h8[1] !== 0x63) abort('Runtime error: expected the system to be little-endian! (Run with -sSUPPORT_BIG_ENDIAN to bypass)');
 })();
 
 function consumedModuleProp(prop) {
@@ -382,7 +419,7 @@ function isExportedByForceFilesystem(name) {
  * are never placed in the global scope.
  */
 function hookGlobalSymbolAccess(sym, func) {
-  if (typeof globalThis != 'undefined' && !Object.getOwnPropertyDescriptor(globalThis, sym)) {
+  if (!Object.getOwnPropertyDescriptor(globalThis, sym)) {
     Object.defineProperty(globalThis, sym, {
       configurable: true,
       get() {
@@ -436,16 +473,13 @@ function unexportedRuntimeSymbol(sym) {
           msg += '. Alternatively, forcing filesystem support (-sFORCE_FILESYSTEM) can export this for you';
         }
         abort(msg);
-      }
+      },
     });
   }
 }
 
 // end include: runtime_debug.js
 // Memory management
-
-var wasmMemory;
-
 var
 /** @type {!Int8Array} */
   HEAP8,
@@ -495,7 +529,7 @@ function updateMemoryViews() {
 // include: memoryprofiler.js
 // end include: memoryprofiler.js
 // end include: runtime_common.js
-assert(typeof Int32Array != 'undefined' && typeof Float64Array !== 'undefined' && Int32Array.prototype.subarray != undefined && Int32Array.prototype.set != undefined,
+assert(globalThis.Int32Array && globalThis.Float64Array && Int32Array.prototype.subarray && Int32Array.prototype.set,
        'JS engine does not provide full typed array support');
 
 function preRun() {
@@ -612,7 +646,7 @@ function createExportWrapper(name, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-    return locateFile('hello.wasm');
+  return locateFile('hello.wasm');
 }
 
 function getBinarySync(file) {
@@ -622,6 +656,8 @@ function getBinarySync(file) {
   if (readBinary) {
     return readBinary(file);
   }
+  // Throwing a plain string here, even though it not normally advisable since
+  // this gets turning into an `abort` in instantiateArrayBuffer.
   throw 'both async and sync fetching of the wasm failed';
 }
 
@@ -650,8 +686,8 @@ async function instantiateArrayBuffer(binaryFile, imports) {
     err(`failed to asynchronously prepare wasm: ${reason}`);
 
     // Warn on some common problems.
-    if (isFileURI(wasmBinaryFile)) {
-      err(`warning: Loading from a file URI (${wasmBinaryFile}) is not supported in most browsers. See https://emscripten.org/docs/getting_started/FAQ.html#how-do-i-run-a-local-webserver-for-testing-why-does-my-program-stall-in-downloading-or-preparing`);
+    if (isFileURI(binaryFile)) {
+      err(`warning: Loading from a file URI (${binaryFile}) is not supported in most browsers. See https://emscripten.org/docs/getting_started/FAQ.html#how-do-i-run-a-local-webserver-for-testing-why-does-my-program-stall-in-downloading-or-preparing`);
     }
     abort(reason);
   }
@@ -686,10 +722,11 @@ async function instantiateAsync(binary, binaryFile, imports) {
 
 function getWasmImports() {
   // prepare imports
-  return {
+  var imports = {
     'env': wasmImports,
     'wasi_snapshot_preview1': wasmImports,
-  }
+  };
+  return imports;
 }
 
 // Create the wasm instance.
@@ -702,14 +739,10 @@ async function createWasm() {
   function receiveInstance(instance, module) {
     wasmExports = instance.exports;
 
-    
+    assignWasmExports(wasmExports);
 
-    wasmMemory = wasmExports['memory'];
-    
-    assert(wasmMemory, 'memory not found in wasm exports');
     updateMemoryViews();
 
-    assignWasmExports(wasmExports);
     removeRunDependency('wasm-instantiate');
     return wasmExports;
   }
@@ -741,8 +774,8 @@ async function createWasm() {
   if (Module['instantiateWasm']) {
     return new Promise((resolve, reject) => {
       try {
-        Module['instantiateWasm'](info, (mod, inst) => {
-          resolve(receiveInstance(mod, inst));
+        Module['instantiateWasm'](info, (inst, mod) => {
+          resolve(receiveInstance(inst, mod));
         });
       } catch(e) {
         err(`Module.instantiateWasm callback failed with error: ${e}`);
@@ -824,7 +857,7 @@ async function createWasm() {
       assert(id, 'addRunDependency requires an ID')
       assert(!runDependencyTracking[id]);
       runDependencyTracking[id] = 1;
-      if (runDependencyWatcher === null && typeof setInterval != 'undefined') {
+      if (runDependencyWatcher === null && globalThis.setInterval) {
         // Check for missing dependencies every few seconds
         runDependencyWatcher = setInterval(() => {
           if (ABORT) {
@@ -853,9 +886,9 @@ async function createWasm() {
 
   
     /**
-     * @param {number} ptr
-     * @param {string} type
-     */
+   * @param {number} ptr
+   * @param {string} type
+   */
   function getValue(ptr, type = 'i8') {
     if (type.endsWith('*')) type = '*';
     switch (type) {
@@ -874,7 +907,7 @@ async function createWasm() {
   var noExitRuntime = false;
 
   var ptrToString = (ptr) => {
-      assert(typeof ptr === 'number');
+      assert(typeof ptr === 'number', `ptrToString expects a number, got ${typeof ptr}`);
       // Convert to 32-bit unsigned value
       ptr >>>= 0;
       return '0x' + ptr.toString(16).padStart(8, '0');
@@ -883,10 +916,10 @@ async function createWasm() {
 
   
     /**
-     * @param {number} ptr
-     * @param {number} value
-     * @param {string} type
-     */
+   * @param {number} ptr
+   * @param {number} value
+   * @param {string} type
+   */
   function setValue(ptr, value, type = 'i8') {
     if (type.endsWith('*')) type = '*';
     switch (type) {
@@ -914,6 +947,8 @@ async function createWasm() {
         err(text);
       }
     };
+
+  
 
   var __abort_js = () =>
       abort('native code called abort()');
@@ -1056,7 +1091,7 @@ async function createWasm() {
       if (!getEnvStrings.strings) {
         // Default values.
         // Browser language detection #8751
-        var lang = ((typeof navigator == 'object' && navigator.language) || 'C').replace('-', '_') + '.UTF-8';
+        var lang = (globalThis.navigator?.language ?? 'C').replace('-', '_') + '.UTF-8';
         var env = {
           'USER': 'web_user',
           'LOGNAME': 'web_user',
@@ -1164,105 +1199,105 @@ async function createWasm() {
         return root + dir;
       },
   basename:(path) => path && path.match(/([^\/]+|\/)\/*$/)[1],
-  join:(...paths) => PATH.normalize(paths.join('/')),
-  join2:(l, r) => PATH.normalize(l + '/' + r),
+join:(...paths) => PATH.normalize(paths.join('/')),
+join2:(l, r) => PATH.normalize(l + '/' + r),
+};
+
+var initRandomFill = () => {
+    // This block is not needed on v19+ since crypto.getRandomValues is builtin
+    if (ENVIRONMENT_IS_NODE) {
+      var nodeCrypto = require('node:crypto');
+      return (view) => nodeCrypto.randomFillSync(view);
+    }
+
+    return (view) => crypto.getRandomValues(view);
   };
-  
-  var initRandomFill = () => {
-      // This block is not needed on v19+ since crypto.getRandomValues is builtin
-      if (ENVIRONMENT_IS_NODE) {
-        var nodeCrypto = require('crypto');
-        return (view) => nodeCrypto.randomFillSync(view);
+var randomFill = (view) => {
+    // Lazily init on the first invocation.
+    (randomFill = initRandomFill())(view);
+  };
+
+
+
+var PATH_FS = {
+resolve:(...args) => {
+      var resolvedPath = '',
+        resolvedAbsolute = false;
+      for (var i = args.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+        var path = (i >= 0) ? args[i] : FS.cwd();
+        // Skip empty and invalid entries
+        if (typeof path != 'string') {
+          throw new TypeError('Arguments to path.resolve must be strings');
+        } else if (!path) {
+          return ''; // an invalid portion invalidates the whole thing
+        }
+        resolvedPath = path + '/' + resolvedPath;
+        resolvedAbsolute = PATH.isAbs(path);
       }
-  
-      return (view) => crypto.getRandomValues(view);
-    };
-  var randomFill = (view) => {
-      // Lazily init on the first invocation.
-      (randomFill = initRandomFill())(view);
-    };
-  
-  
-  
-  var PATH_FS = {
-  resolve:(...args) => {
-        var resolvedPath = '',
-          resolvedAbsolute = false;
-        for (var i = args.length - 1; i >= -1 && !resolvedAbsolute; i--) {
-          var path = (i >= 0) ? args[i] : FS.cwd();
-          // Skip empty and invalid entries
-          if (typeof path != 'string') {
-            throw new TypeError('Arguments to path.resolve must be strings');
-          } else if (!path) {
-            return ''; // an invalid portion invalidates the whole thing
-          }
-          resolvedPath = path + '/' + resolvedPath;
-          resolvedAbsolute = PATH.isAbs(path);
+      // At this point the path should be resolved to a full absolute path, but
+      // handle relative paths to be safe (might happen when process.cwd() fails)
+      resolvedPath = PATH.normalizeArray(resolvedPath.split('/').filter((p) => !!p), !resolvedAbsolute).join('/');
+      return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+    },
+relative:(from, to) => {
+      from = PATH_FS.resolve(from).slice(1);
+      to = PATH_FS.resolve(to).slice(1);
+      function trim(arr) {
+        var start = 0;
+        for (; start < arr.length; start++) {
+          if (arr[start] !== '') break;
         }
-        // At this point the path should be resolved to a full absolute path, but
-        // handle relative paths to be safe (might happen when process.cwd() fails)
-        resolvedPath = PATH.normalizeArray(resolvedPath.split('/').filter((p) => !!p), !resolvedAbsolute).join('/');
-        return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-      },
-  relative:(from, to) => {
-        from = PATH_FS.resolve(from).slice(1);
-        to = PATH_FS.resolve(to).slice(1);
-        function trim(arr) {
-          var start = 0;
-          for (; start < arr.length; start++) {
-            if (arr[start] !== '') break;
-          }
-          var end = arr.length - 1;
-          for (; end >= 0; end--) {
-            if (arr[end] !== '') break;
-          }
-          if (start > end) return [];
-          return arr.slice(start, end - start + 1);
+        var end = arr.length - 1;
+        for (; end >= 0; end--) {
+          if (arr[end] !== '') break;
         }
-        var fromParts = trim(from.split('/'));
-        var toParts = trim(to.split('/'));
-        var length = Math.min(fromParts.length, toParts.length);
-        var samePartsLength = length;
-        for (var i = 0; i < length; i++) {
-          if (fromParts[i] !== toParts[i]) {
-            samePartsLength = i;
-            break;
-          }
+        if (start > end) return [];
+        return arr.slice(start, end - start + 1);
+      }
+      var fromParts = trim(from.split('/'));
+      var toParts = trim(to.split('/'));
+      var length = Math.min(fromParts.length, toParts.length);
+      var samePartsLength = length;
+      for (var i = 0; i < length; i++) {
+        if (fromParts[i] !== toParts[i]) {
+          samePartsLength = i;
+          break;
         }
-        var outputParts = [];
-        for (var i = samePartsLength; i < fromParts.length; i++) {
-          outputParts.push('..');
-        }
-        outputParts = outputParts.concat(toParts.slice(samePartsLength));
-        return outputParts.join('/');
-      },
+      }
+      var outputParts = [];
+      for (var i = samePartsLength; i < fromParts.length; i++) {
+        outputParts.push('..');
+      }
+      outputParts = outputParts.concat(toParts.slice(samePartsLength));
+      return outputParts.join('/');
+    },
+};
+
+
+var UTF8Decoder = globalThis.TextDecoder && new TextDecoder();
+
+var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
+    var maxIdx = idx + maxBytesToRead;
+    if (ignoreNul) return maxIdx;
+    // TextDecoder needs to know the byte length in advance, it doesn't stop on
+    // null terminator by itself.
+    // As a tiny code save trick, compare idx against maxIdx using a negation,
+    // so that maxBytesToRead=undefined/NaN means Infinity.
+    while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
+    return idx;
   };
-  
-  
-  var UTF8Decoder = typeof TextDecoder != 'undefined' ? new TextDecoder() : undefined;
-  
-  var findStringEnd = (heapOrArray, idx, maxBytesToRead, ignoreNul) => {
-      var maxIdx = idx + maxBytesToRead;
-      if (ignoreNul) return maxIdx;
-      // TextDecoder needs to know the byte length in advance, it doesn't stop on
-      // null terminator by itself.
-      // As a tiny code save trick, compare idx against maxIdx using a negation,
-      // so that maxBytesToRead=undefined/NaN means Infinity.
-      while (heapOrArray[idx] && !(idx >= maxIdx)) ++idx;
-      return idx;
-    };
-  
-  
-    /**
-     * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
-     * array that contains uint8 values, returns a copy of that string as a
-     * Javascript String object.
-     * heapOrArray is either a regular array, or a JavaScript typed array view.
-     * @param {number=} idx
-     * @param {number=} maxBytesToRead
-     * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
-     * @return {string}
-     */
+
+
+  /**
+   * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
+   * array that contains uint8 values, returns a copy of that string as a
+   * Javascript String object.
+   * heapOrArray is either a regular array, or a JavaScript typed array view.
+   * @param {number=} idx
+   * @param {number=} maxBytesToRead
+   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
+   * @return {string}
+   */
   var UTF8ArrayToString = (heapOrArray, idx = 0, maxBytesToRead, ignoreNul) => {
   
       var endPtr = findStringEnd(heapOrArray, idx, maxBytesToRead, ignoreNul);
@@ -1342,8 +1377,7 @@ async function createWasm() {
             result = buf.slice(0, bytesRead).toString('utf-8');
           }
         } else
-        if (typeof window != 'undefined' &&
-          typeof window.prompt == 'function') {
+        if (globalThis.window?.prompt) {
           // Browser.
           result = window.prompt('Input: ');  // returns null on cancel
           if (result !== null) {
@@ -1511,7 +1545,7 @@ async function createWasm() {
       },
   createNode(parent, name, mode, dev) {
         if (FS.isBlkdev(mode) || FS.isFIFO(mode)) {
-          // no supported
+          // not supported
           throw new FS.ErrnoError(63);
         }
         MEMFS.ops_table ||= {
@@ -1844,18 +1878,18 @@ async function createWasm() {
   
   
     /**
-     * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
-     * emscripten HEAP, returns a copy of that string as a Javascript String object.
-     *
-     * @param {number} ptr
-     * @param {number=} maxBytesToRead - An optional length that specifies the
-     *   maximum number of bytes to read. You can omit this parameter to scan the
-     *   string until the first 0 byte. If maxBytesToRead is passed, and the string
-     *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
-     *   string will cut short at that byte index.
-     * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
-     * @return {string}
-     */
+   * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
+   * emscripten HEAP, returns a copy of that string as a Javascript String object.
+   *
+   * @param {number} ptr
+   * @param {number=} maxBytesToRead - An optional length that specifies the
+   *   maximum number of bytes to read. You can omit this parameter to scan the
+   *   string until the first 0 byte. If maxBytesToRead is passed, and the string
+   *   at [ptr, ptr+maxBytesToReadr[ contains a null byte in the middle, then the
+   *   string will cut short at that byte index.
+   * @param {boolean=} ignoreNul - If true, the function will not stop on a NUL character.
+   * @return {string}
+   */
   var UTF8ToString = (ptr, maxBytesToRead, ignoreNul) => {
       assert(typeof ptr == 'number', `UTF8ToString expects a number (got ${typeof ptr})`);
       return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead, ignoreNul) : '';
@@ -2017,7 +2051,7 @@ async function createWasm() {
           return plugin['handle'](byteArray, fullname);
         }
       }
-      // In no plugin handled this file then return the original/unmodified
+      // If no plugin handled this file then return the original/unmodified
       // byteArray.
       return byteArray;
     };
@@ -2059,8 +2093,6 @@ async function createWasm() {
   ignorePermissions:true,
   filesystems:null,
   syncFSRequests:0,
-  readFiles:{
-  },
   ErrnoError:class extends Error {
         name = 'ErrnoError';
         // We set the `name` property to be able to identify `FS.ErrnoError`
@@ -2334,9 +2366,11 @@ async function createWasm() {
         // return 0 if any user, group or owner bits are set.
         if (perms.includes('r') && !(node.mode & 292)) {
           return 2;
-        } else if (perms.includes('w') && !(node.mode & 146)) {
+        }
+        if (perms.includes('w') && !(node.mode & 146)) {
           return 2;
-        } else if (perms.includes('x') && !(node.mode & 73)) {
+        }
+        if (perms.includes('x') && !(node.mode & 73)) {
           return 2;
         }
         return 0;
@@ -2377,10 +2411,8 @@ async function createWasm() {
           if (FS.isRoot(node) || FS.getPath(node) === FS.cwd()) {
             return 10;
           }
-        } else {
-          if (FS.isDir(node.mode)) {
-            return 31;
-          }
+        } else if (FS.isDir(node.mode)) {
+          return 31;
         }
         return 0;
       },
@@ -2390,13 +2422,16 @@ async function createWasm() {
         }
         if (FS.isLink(node.mode)) {
           return 32;
-        } else if (FS.isDir(node.mode)) {
-          if (FS.flagsToPermissionString(flags) !== 'r' // opening for write
-              || (flags & (512 | 64))) { // TODO: check for O_SEARCH? (== search for dir only)
+        }
+        var mode = FS.flagsToPermissionString(flags);
+        if (FS.isDir(node.mode)) {
+          // opening for write
+          // TODO: check for O_SEARCH? (== search for dir only)
+          if (mode !== 'r' || (flags & (512 | 64))) {
             return 31;
           }
         }
-        return FS.nodePermissions(node, FS.flagsToPermissionString(flags));
+        return FS.nodePermissions(node, mode);
       },
   checkOpExists(op, err) {
         if (!op) {
@@ -2516,12 +2551,13 @@ async function createWasm() {
         };
   
         // sync all mounts
-        mounts.forEach((mount) => {
-          if (!mount.type.syncfs) {
-            return done(null);
+        for (var mount of mounts) {
+          if (mount.type.syncfs) {
+            mount.type.syncfs(mount, populate, done);
+          } else {
+            done(null);
           }
-          mount.type.syncfs(mount, populate, done);
-        });
+        }
       },
   mount(type, opts, mountpoint) {
         if (typeof type == 'string') {
@@ -2588,9 +2624,7 @@ async function createWasm() {
         var mount = node.mounted;
         var mounts = FS.getMounts(mount);
   
-        Object.keys(FS.nameTable).forEach((hash) => {
-          var current = FS.nameTable[hash];
-  
+        for (var [hash, current] of Object.entries(FS.nameTable)) {
           while (current) {
             var next = current.name_next;
   
@@ -2600,7 +2634,7 @@ async function createWasm() {
   
             current = next;
           }
-        });
+        }
   
         // no longer a mountpoint
         node.mounted = null;
@@ -3008,7 +3042,7 @@ async function createWasm() {
           } else {
             // node doesn't exist, try to create it
             // Ignore the permission bits here to ensure we can `open` this new
-            // file below. We use chmod below the apply the permissions once the
+            // file below. We use chmod below to apply the permissions once the
             // file is open.
             node = FS.mknod(path, mode | 0o777, 0);
             created = true;
@@ -3059,11 +3093,6 @@ async function createWasm() {
         }
         if (created) {
           FS.chmod(node, mode & 0o777);
-        }
-        if (Module['logReadFiles'] && !(flags & 1)) {
-          if (!(path in FS.readFiles)) {
-            FS.readFiles[path] = 1;
-          }
         }
         return stream;
       },
@@ -3198,7 +3227,7 @@ async function createWasm() {
         opts.flags = opts.flags || 0;
         opts.encoding = opts.encoding || 'binary';
         if (opts.encoding !== 'utf8' && opts.encoding !== 'binary') {
-          throw new Error(`Invalid encoding type "${opts.encoding}"`);
+          abort(`Invalid encoding type "${opts.encoding}"`);
         }
         var stream = FS.open(path, opts.flags);
         var stat = FS.stat(path);
@@ -3220,7 +3249,7 @@ async function createWasm() {
         if (ArrayBuffer.isView(data)) {
           FS.write(stream, data, 0, data.byteLength, undefined, opts.canOwn);
         } else {
-          throw new Error('Unsupported data type');
+          abort('Unsupported data type');
         }
         FS.close(stream);
       },
@@ -3515,8 +3544,8 @@ async function createWasm() {
       },
   forceLoadFile(obj) {
         if (obj.isDevice || obj.isFolder || obj.link || obj.contents) return true;
-        if (typeof XMLHttpRequest != 'undefined') {
-          throw new Error("Lazy loading should have been performed (contents set) in createLazyFile, but it was not. Lazy loading only works in web workers. Use --embed-file or --preload-file in emcc on the main thread.");
+        if (globalThis.XMLHttpRequest) {
+          abort("Lazy loading should have been performed (contents set) in createLazyFile, but it was not. Lazy loading only works in web workers. Use --embed-file or --preload-file in emcc on the main thread.");
         } else { // Command-line.
           try {
             obj.contents = readBinary(obj.url);
@@ -3547,7 +3576,7 @@ async function createWasm() {
             var xhr = new XMLHttpRequest();
             xhr.open('HEAD', url, false);
             xhr.send(null);
-            if (!(xhr.status >= 200 && xhr.status < 300 || xhr.status === 304)) throw new Error("Couldn't load " + url + ". Status: " + xhr.status);
+            if (!(xhr.status >= 200 && xhr.status < 300 || xhr.status === 304)) abort("Couldn't load " + url + ". Status: " + xhr.status);
             var datalength = Number(xhr.getResponseHeader("Content-length"));
             var header;
             var hasByteServing = (header = xhr.getResponseHeader("Accept-Ranges")) && header === "bytes";
@@ -3559,8 +3588,8 @@ async function createWasm() {
   
             // Function to get a range from the remote URL.
             var doXHR = (from, to) => {
-              if (from > to) throw new Error("invalid range (" + from + ", " + to + ") or no bytes requested!");
-              if (to > datalength-1) throw new Error("only " + datalength + " bytes available! programmer error!");
+              if (from > to) abort("invalid range (" + from + ", " + to + ") or no bytes requested!");
+              if (to > datalength-1) abort("only " + datalength + " bytes available! programmer error!");
   
               // TODO: Use mozResponseArrayBuffer, responseStream, etc. if available.
               var xhr = new XMLHttpRequest();
@@ -3574,7 +3603,7 @@ async function createWasm() {
               }
   
               xhr.send(null);
-              if (!(xhr.status >= 200 && xhr.status < 300 || xhr.status === 304)) throw new Error("Couldn't load " + url + ". Status: " + xhr.status);
+              if (!(xhr.status >= 200 && xhr.status < 300 || xhr.status === 304)) abort("Couldn't load " + url + ". Status: " + xhr.status);
               if (xhr.response !== undefined) {
                 return new Uint8Array(/** @type{Array<number>} */(xhr.response || []));
               }
@@ -3588,7 +3617,7 @@ async function createWasm() {
               if (typeof lazyArray.chunks[chunkNum] == 'undefined') {
                 lazyArray.chunks[chunkNum] = doXHR(start, end);
               }
-              if (typeof lazyArray.chunks[chunkNum] == 'undefined') throw new Error('doXHR failed!');
+              if (typeof lazyArray.chunks[chunkNum] == 'undefined') abort('doXHR failed!');
               return lazyArray.chunks[chunkNum];
             });
   
@@ -3618,8 +3647,8 @@ async function createWasm() {
           }
         }
   
-        if (typeof XMLHttpRequest != 'undefined') {
-          if (!ENVIRONMENT_IS_WORKER) throw 'Cannot do synchronous binary XHRs outside webworkers in modern browsers. Use --embed-file or --preload-file in emcc';
+        if (globalThis.XMLHttpRequest) {
+          if (!ENVIRONMENT_IS_WORKER) abort('Cannot do synchronous binary XHRs outside webworkers in modern browsers. Use --embed-file or --preload-file in emcc');
           var lazyArray = new LazyUint8Array();
           var properties = { isDevice: false, contents: lazyArray };
         } else {
@@ -3644,14 +3673,12 @@ async function createWasm() {
         });
         // override each stream op with one that tries to force load the lazy file first
         var stream_ops = {};
-        var keys = Object.keys(node.stream_ops);
-        keys.forEach((key) => {
-          var fn = node.stream_ops[key];
+        for (const [key, fn] of Object.entries(node.stream_ops)) {
           stream_ops[key] = (...args) => {
             FS.forceLoadFile(node);
             return fn(...args);
           };
-        });
+        }
         function writeChunks(stream, buffer, offset, length, position) {
           var contents = stream.node.contents;
           if (position >= contents.length)
@@ -3708,7 +3735,6 @@ async function createWasm() {
   };
   
   var SYSCALLS = {
-  DEFAULT_POLLMASK:5,
   calculateAt(dirfd, path, allowEmpty) {
         if (PATH.isAbs(path)) {
           return path;
@@ -3933,6 +3959,547 @@ async function createWasm() {
       quit_(1, e);
     };
 
+  
+  var _exit = exitJS;
+  
+  
+  var maybeExit = () => {
+      if (runtimeExited) {
+        return;
+      }
+      if (!keepRuntimeAlive()) {
+        try {
+          _exit(EXITSTATUS);
+        } catch (e) {
+          handleException(e);
+        }
+      }
+    };
+  var callUserCallback = (func) => {
+      if (runtimeExited || ABORT) {
+        err('user callback triggered after runtime exited or application aborted.  Ignoring.');
+        return;
+      }
+      try {
+        return func();
+      } catch (e) {
+        handleException(e);
+      } finally {
+        maybeExit();
+      }
+    };
+  
+  function getFullscreenElement() {
+      return document.fullscreenElement || document.mozFullScreenElement ||
+             document.webkitFullscreenElement || document.webkitCurrentFullScreenElement ||
+             document.msFullscreenElement;
+    }
+  
+  
+  var runtimeKeepalivePush = () => {
+      runtimeKeepaliveCounter += 1;
+    };
+  
+  var runtimeKeepalivePop = () => {
+      assert(runtimeKeepaliveCounter > 0);
+      runtimeKeepaliveCounter -= 1;
+    };
+  /** @param {number=} timeout */
+  var safeSetTimeout = (func, timeout) => {
+      runtimeKeepalivePush();
+      return setTimeout(() => {
+        runtimeKeepalivePop();
+        callUserCallback(func);
+      }, timeout);
+    };
+  
+  
+  
+  var Browser = {
+  useWebGL:false,
+  isFullscreen:false,
+  pointerLock:false,
+  moduleContextCreatedCallbacks:[],
+  workers:[],
+  preloadedImages:{
+  },
+  preloadedAudios:{
+  },
+  getCanvas:() => Module['canvas'],
+  init() {
+        if (Browser.initted) return;
+        Browser.initted = true;
+  
+        // Support for plugins that can process preloaded files. You can add more of these to
+        // your app by creating and appending to preloadPlugins.
+        //
+        // Each plugin is asked if it can handle a file based on the file's name. If it can,
+        // it is given the file's raw data. When it is done, it calls a callback with the file's
+        // (possibly modified) data. For example, a plugin might decompress a file, or it
+        // might create some side data structure for use later (like an Image element, etc.).
+  
+        var imagePlugin = {};
+        imagePlugin['canHandle'] = (name) => {
+          return !Module['noImageDecoding'] && /\.(jpg|jpeg|png|bmp|webp)$/i.test(name);
+        };
+        imagePlugin['handle'] = async (byteArray, name) => {
+          var b = new Blob([byteArray], { type: Browser.getMimetype(name) });
+          if (b.size !== byteArray.length) { // Safari bug #118630
+            // Safari's Blob can only take an ArrayBuffer
+            b = new Blob([(new Uint8Array(byteArray)).buffer], { type: Browser.getMimetype(name) });
+          }
+          var url = URL.createObjectURL(b);
+          return new Promise((resolve, reject) => {
+            var img = new Image();
+            img.onload = () => {
+              assert(img.complete, `Image ${name} could not be decoded`);
+              var canvas = /** @type {!HTMLCanvasElement} */ (document.createElement('canvas'));
+              canvas.width = img.width;
+              canvas.height = img.height;
+              var ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              Browser.preloadedImages[name] = canvas;
+              URL.revokeObjectURL(url);
+              resolve(byteArray);
+            };
+            img.onerror = (event) => {
+              err(`Image ${url} could not be decoded`);
+              reject();
+            };
+            img.src = url;
+          });
+        };
+        preloadPlugins.push(imagePlugin);
+  
+        var audioPlugin = {};
+        audioPlugin['canHandle'] = (name) => {
+          return !Module['noAudioDecoding'] && name.slice(-4) in { '.ogg': 1, '.wav': 1, '.mp3': 1 };
+        };
+        audioPlugin['handle'] = async (byteArray, name) => {
+          return new Promise((resolve, reject) => {
+            var done = false;
+            function finish(audio) {
+              if (done) return;
+              done = true;
+              Browser.preloadedAudios[name] = audio;
+              resolve(byteArray);
+            }
+            var b = new Blob([byteArray], { type: Browser.getMimetype(name) });
+            var url = URL.createObjectURL(b); // XXX we never revoke this!
+            var audio = new Audio();
+            audio.addEventListener('canplaythrough', () => finish(audio), false); // use addEventListener due to chromium bug 124926
+            audio.onerror = (event) => {
+              if (done) return;
+              err(`warning: browser could not fully decode audio ${name}, trying slower base64 approach`);
+              function encode64(data) {
+                var BASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+                var PAD = '=';
+                var ret = '';
+                var leftchar = 0;
+                var leftbits = 0;
+                for (var i = 0; i < data.length; i++) {
+                  leftchar = (leftchar << 8) | data[i];
+                  leftbits += 8;
+                  while (leftbits >= 6) {
+                    var curr = (leftchar >> (leftbits-6)) & 0x3f;
+                    leftbits -= 6;
+                    ret += BASE[curr];
+                  }
+                }
+                if (leftbits == 2) {
+                  ret += BASE[(leftchar&3) << 4];
+                  ret += PAD + PAD;
+                } else if (leftbits == 4) {
+                  ret += BASE[(leftchar&0xf) << 2];
+                  ret += PAD;
+                }
+                return ret;
+              }
+              audio.src = 'data:audio/x-' + name.slice(-3) + ';base64,' + encode64(byteArray);
+              finish(audio); // we don't wait for confirmation this worked - but it's worth trying
+            };
+            audio.src = url;
+            // workaround for chrome bug 124926 - we do not always get oncanplaythrough or onerror
+            safeSetTimeout(() => {
+              finish(audio); // try to use it even though it is not necessarily ready to play
+            }, 10000);
+          });
+        };
+        preloadPlugins.push(audioPlugin);
+  
+        // Canvas event setup
+  
+        function pointerLockChange() {
+          var canvas = Browser.getCanvas();
+          Browser.pointerLock = document.pointerLockElement === canvas;
+        }
+        var canvas = Browser.getCanvas();
+        if (canvas) {
+          // forced aspect ratio can be enabled by defining 'forcedAspectRatio' on Module
+          // Module['forcedAspectRatio'] = 4 / 3;
+  
+          document.addEventListener('pointerlockchange', pointerLockChange, false);
+  
+          if (Module['elementPointerLock']) {
+            canvas.addEventListener("click", (ev) => {
+              if (!Browser.pointerLock && Browser.getCanvas().requestPointerLock) {
+                Browser.getCanvas().requestPointerLock();
+                ev.preventDefault();
+              }
+            }, false);
+          }
+        }
+      },
+  createContext(/** @type {HTMLCanvasElement} */ canvas, useWebGL, setInModule, webGLContextAttributes) {
+        if (useWebGL && Module['ctx'] && canvas == Browser.getCanvas()) return Module['ctx']; // no need to recreate GL context if it's already been created for this canvas.
+  
+        var ctx;
+        var contextHandle;
+        if (useWebGL) {
+          // For GLES2/desktop GL compatibility, adjust a few defaults to be different to WebGL defaults, so that they align better with the desktop defaults.
+          var contextAttributes = {
+            antialias: false,
+            alpha: false,
+            majorVersion: 1,
+          };
+  
+          if (webGLContextAttributes) {
+            for (var attribute in webGLContextAttributes) {
+              contextAttributes[attribute] = webGLContextAttributes[attribute];
+            }
+          }
+  
+          // This check of existence of GL is here to satisfy Closure compiler, which yells if variable GL is referenced below but GL object is not
+          // actually compiled in because application is not doing any GL operations. TODO: Ideally if GL is not being used, this function
+          // Browser.createContext() should not even be emitted.
+          if (typeof GL != 'undefined') {
+            contextHandle = GL.createContext(canvas, contextAttributes);
+            if (contextHandle) {
+              ctx = GL.getContext(contextHandle).GLctx;
+            }
+          }
+        } else {
+          ctx = canvas.getContext('2d');
+        }
+  
+        if (!ctx) return null;
+  
+        if (setInModule) {
+          if (!useWebGL) assert(typeof GLctx == 'undefined', 'cannot set in module if GLctx is used, but we are a non-GL context that would replace it');
+          Module['ctx'] = ctx;
+          if (useWebGL) GL.makeContextCurrent(contextHandle);
+          Browser.useWebGL = useWebGL;
+          Browser.moduleContextCreatedCallbacks.forEach((callback) => callback());
+          Browser.init();
+        }
+        return ctx;
+      },
+  fullscreenHandlersInstalled:false,
+  lockPointer:undefined,
+  resizeCanvas:undefined,
+  requestFullscreen(lockPointer, resizeCanvas) {
+        Browser.lockPointer = lockPointer;
+        Browser.resizeCanvas = resizeCanvas;
+        if (typeof Browser.lockPointer == 'undefined') Browser.lockPointer = true;
+        if (typeof Browser.resizeCanvas == 'undefined') Browser.resizeCanvas = false;
+  
+        var canvas = Browser.getCanvas();
+        function fullscreenChange() {
+          Browser.isFullscreen = false;
+          var canvasContainer = canvas.parentNode;
+          if (getFullscreenElement() === canvasContainer) {
+            canvas.exitFullscreen = Browser.exitFullscreen;
+            if (Browser.lockPointer) canvas.requestPointerLock();
+            Browser.isFullscreen = true;
+            if (Browser.resizeCanvas) {
+              Browser.setFullscreenCanvasSize();
+            } else {
+              Browser.updateCanvasDimensions(canvas);
+            }
+          } else {
+            // remove the full screen specific parent of the canvas again to restore the HTML structure from before going full screen
+            canvasContainer.parentNode.insertBefore(canvas, canvasContainer);
+            canvasContainer.parentNode.removeChild(canvasContainer);
+  
+            if (Browser.resizeCanvas) {
+              Browser.setWindowedCanvasSize();
+            } else {
+              Browser.updateCanvasDimensions(canvas);
+            }
+          }
+          Module['onFullScreen']?.(Browser.isFullscreen);
+          Module['onFullscreen']?.(Browser.isFullscreen);
+        }
+  
+        if (!Browser.fullscreenHandlersInstalled) {
+          Browser.fullscreenHandlersInstalled = true;
+          document.addEventListener('fullscreenchange', fullscreenChange, false);
+          document.addEventListener('mozfullscreenchange', fullscreenChange, false);
+          document.addEventListener('webkitfullscreenchange', fullscreenChange, false);
+          document.addEventListener('MSFullscreenChange', fullscreenChange, false);
+        }
+  
+        // create a new parent to ensure the canvas has no siblings. this allows browsers to optimize full screen performance when its parent is the full screen root
+        var canvasContainer = document.createElement("div");
+        canvas.parentNode.insertBefore(canvasContainer, canvas);
+        canvasContainer.appendChild(canvas);
+  
+        // use parent of canvas as full screen root to allow aspect ratio correction (Firefox stretches the root to screen size)
+        canvasContainer.requestFullscreen = canvasContainer['requestFullscreen'] ||
+                                            canvasContainer['mozRequestFullScreen'] ||
+                                            canvasContainer['msRequestFullscreen'] ||
+                                           (canvasContainer['webkitRequestFullscreen'] ? () => canvasContainer['webkitRequestFullscreen'](Element['ALLOW_KEYBOARD_INPUT']) : null) ||
+                                           (canvasContainer['webkitRequestFullScreen'] ? () => canvasContainer['webkitRequestFullScreen'](Element['ALLOW_KEYBOARD_INPUT']) : null);
+  
+        canvasContainer.requestFullscreen();
+      },
+  requestFullScreen() {
+        abort('Module.requestFullScreen has been replaced by Module.requestFullscreen (without a capital S)');
+      },
+  exitFullscreen() {
+        // This is workaround for chrome. Trying to exit from fullscreen
+        // not in fullscreen state will cause "TypeError: Document not active"
+        // in chrome. See https://github.com/emscripten-core/emscripten/pull/8236
+        if (!Browser.isFullscreen) {
+          return false;
+        }
+  
+        var CFS = document['exitFullscreen'] ||
+                  document['cancelFullScreen'] ||
+                  document['mozCancelFullScreen'] ||
+                  document['msExitFullscreen'] ||
+                  document['webkitCancelFullScreen'] ||
+            (() => {});
+        CFS.apply(document, []);
+        return true;
+      },
+  safeSetTimeout(func, timeout) {
+        // Legacy function, this is used by the SDL2 port so we need to keep it
+        // around at least until that is updated.
+        // See https://github.com/libsdl-org/SDL/pull/6304
+        return safeSetTimeout(func, timeout);
+      },
+  getMimetype(name) {
+        return {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'bmp': 'image/bmp',
+          'ogg': 'audio/ogg',
+          'wav': 'audio/wav',
+          'mp3': 'audio/mpeg'
+        }[name.slice(name.lastIndexOf('.')+1)];
+      },
+  getUserMedia(func) {
+        window.getUserMedia ||= navigator['getUserMedia'] ||
+                                navigator['mozGetUserMedia'];
+        window.getUserMedia(func);
+      },
+  getMovementX(event) {
+        return event['movementX'] ||
+               event['mozMovementX'] ||
+               event['webkitMovementX'] ||
+               0;
+      },
+  getMovementY(event) {
+        return event['movementY'] ||
+               event['mozMovementY'] ||
+               event['webkitMovementY'] ||
+               0;
+      },
+  getMouseWheelDelta(event) {
+        var delta = 0;
+        switch (event.type) {
+          case 'DOMMouseScroll':
+            // 3 lines make up a step
+            delta = event.detail / 3;
+            break;
+          case 'mousewheel':
+            // 120 units make up a step
+            delta = event.wheelDelta / 120;
+            break;
+          case 'wheel':
+            delta = event.deltaY
+            switch (event.deltaMode) {
+              case 0:
+                // DOM_DELTA_PIXEL: 100 pixels make up a step
+                delta /= 100;
+                break;
+              case 1:
+                // DOM_DELTA_LINE: 3 lines make up a step
+                delta /= 3;
+                break;
+              case 2:
+                // DOM_DELTA_PAGE: A page makes up 80 steps
+                delta *= 80;
+                break;
+              default:
+                abort('unrecognized mouse wheel delta mode: ' + event.deltaMode);
+            }
+            break;
+          default:
+            abort('unrecognized mouse wheel event: ' + event.type);
+        }
+        return delta;
+      },
+  mouseX:0,
+  mouseY:0,
+  mouseMovementX:0,
+  mouseMovementY:0,
+  touches:{
+  },
+  lastTouches:{
+  },
+  calculateMouseCoords(pageX, pageY) {
+        // Calculate the movement based on the changes
+        // in the coordinates.
+        var canvas = Browser.getCanvas();
+        var rect = canvas.getBoundingClientRect();
+  
+        // Neither .scrollX or .pageXOffset are defined in a spec, but
+        // we prefer .scrollX because it is currently in a spec draft.
+        // (see: http://www.w3.org/TR/2013/WD-cssom-view-20131217/)
+        var scrollX = ((typeof window.scrollX != 'undefined') ? window.scrollX : window.pageXOffset);
+        var scrollY = ((typeof window.scrollY != 'undefined') ? window.scrollY : window.pageYOffset);
+        // If this assert lands, it's likely because the browser doesn't support scrollX or pageXOffset
+        // and we have no viable fallback.
+        assert((typeof scrollX != 'undefined') && (typeof scrollY != 'undefined'), 'Unable to retrieve scroll position, mouse positions likely broken.');
+        var adjustedX = pageX - (scrollX + rect.left);
+        var adjustedY = pageY - (scrollY + rect.top);
+  
+        // the canvas might be CSS-scaled compared to its backbuffer;
+        // SDL-using content will want mouse coordinates in terms
+        // of backbuffer units.
+        adjustedX = adjustedX * (canvas.width / rect.width);
+        adjustedY = adjustedY * (canvas.height / rect.height);
+  
+        return { x: adjustedX, y: adjustedY };
+      },
+  setMouseCoords(pageX, pageY) {
+        const {x, y} = Browser.calculateMouseCoords(pageX, pageY);
+        Browser.mouseMovementX = x - Browser.mouseX;
+        Browser.mouseMovementY = y - Browser.mouseY;
+        Browser.mouseX = x;
+        Browser.mouseY = y;
+      },
+  calculateMouseEvent(event) { // event should be mousemove, mousedown or mouseup
+        if (Browser.pointerLock) {
+          // When the pointer is locked, calculate the coordinates
+          // based on the movement of the mouse.
+          // Workaround for Firefox bug 764498
+          if (event.type != 'mousemove' &&
+              ('mozMovementX' in event)) {
+            Browser.mouseMovementX = Browser.mouseMovementY = 0;
+          } else {
+            Browser.mouseMovementX = Browser.getMovementX(event);
+            Browser.mouseMovementY = Browser.getMovementY(event);
+          }
+  
+          // add the mouse delta to the current absolute mouse position
+          Browser.mouseX += Browser.mouseMovementX;
+          Browser.mouseY += Browser.mouseMovementY;
+        } else {
+          if (event.type === 'touchstart' || event.type === 'touchend' || event.type === 'touchmove') {
+            var touch = event.touch;
+            if (touch === undefined) {
+              return; // the "touch" property is only defined in SDL
+  
+            }
+            var coords = Browser.calculateMouseCoords(touch.pageX, touch.pageY);
+  
+            if (event.type === 'touchstart') {
+              Browser.lastTouches[touch.identifier] = coords;
+              Browser.touches[touch.identifier] = coords;
+            } else if (event.type === 'touchend' || event.type === 'touchmove') {
+              var last = Browser.touches[touch.identifier];
+              last ||= coords;
+              Browser.lastTouches[touch.identifier] = last;
+              Browser.touches[touch.identifier] = coords;
+            }
+            return;
+          }
+  
+          Browser.setMouseCoords(event.pageX, event.pageY);
+        }
+      },
+  resizeListeners:[],
+  updateResizeListeners() {
+        var canvas = Browser.getCanvas();
+        Browser.resizeListeners.forEach((listener) => listener(canvas.width, canvas.height));
+      },
+  setCanvasSize(width, height, noUpdates) {
+        var canvas = Browser.getCanvas();
+        Browser.updateCanvasDimensions(canvas, width, height);
+        if (!noUpdates) Browser.updateResizeListeners();
+      },
+  windowedWidth:0,
+  windowedHeight:0,
+  setFullscreenCanvasSize() {
+        // check if SDL is available
+        if (typeof SDL != "undefined") {
+          var flags = HEAPU32[((SDL.screen)>>2)];
+          flags = flags | 0x00800000; // set SDL_FULLSCREEN flag
+          HEAP32[((SDL.screen)>>2)] = flags;
+        }
+        Browser.updateCanvasDimensions(Browser.getCanvas());
+        Browser.updateResizeListeners();
+      },
+  setWindowedCanvasSize() {
+        // check if SDL is available
+        if (typeof SDL != "undefined") {
+          var flags = HEAPU32[((SDL.screen)>>2)];
+          flags = flags & ~0x00800000; // clear SDL_FULLSCREEN flag
+          HEAP32[((SDL.screen)>>2)] = flags;
+        }
+        Browser.updateCanvasDimensions(Browser.getCanvas());
+        Browser.updateResizeListeners();
+      },
+  updateCanvasDimensions(canvas, wNative, hNative) {
+        if (wNative && hNative) {
+          canvas.widthNative = wNative;
+          canvas.heightNative = hNative;
+        } else {
+          wNative = canvas.widthNative;
+          hNative = canvas.heightNative;
+        }
+        var w = wNative;
+        var h = hNative;
+        if (Module['forcedAspectRatio'] > 0) {
+          if (w/h < Module['forcedAspectRatio']) {
+            w = Math.round(h * Module['forcedAspectRatio']);
+          } else {
+            h = Math.round(w / Module['forcedAspectRatio']);
+          }
+        }
+        if ((getFullscreenElement() === canvas.parentNode) && (typeof screen != 'undefined')) {
+           var factor = Math.min(screen.width / w, screen.height / h);
+           w = Math.round(w * factor);
+           h = Math.round(h * factor);
+        }
+        if (Browser.resizeCanvas) {
+          if (canvas.width  != w) canvas.width  = w;
+          if (canvas.height != h) canvas.height = h;
+          if (typeof canvas.style != 'undefined') {
+            canvas.style.removeProperty( "width");
+            canvas.style.removeProperty("height");
+          }
+        } else {
+          if (canvas.width  != wNative) canvas.width  = wNative;
+          if (canvas.height != hNative) canvas.height = hNative;
+          if (typeof canvas.style != 'undefined') {
+            if (w != wNative || h != hNative) {
+              canvas.style.setProperty( "width", w + "px", "important");
+              canvas.style.setProperty("height", h + "px", "important");
+            } else {
+              canvas.style.removeProperty( "width");
+              canvas.style.removeProperty("height");
+            }
+          }
+        }
+      },
+  };
+  var requestFullscreen = Browser.requestFullscreen;
+
   FS.createPreloadedFile = FS_createPreloadedFile;
   FS.preloadFile = FS_preloadFile;
   FS.staticInit();;
@@ -3983,6 +4550,7 @@ if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];
 }
 
 // Begin runtime exports
+  Module['requestFullscreen'] = requestFullscreen;
   var missingLibrarySymbols = [
   'writeI53ToI64',
   'writeI53ToI64Clamped',
@@ -3997,6 +4565,7 @@ if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];
   'stackAlloc',
   'getTempRet0',
   'setTempRet0',
+  'createNamedFunction',
   'zeroMemory',
   'getHeapMax',
   'growMemory',
@@ -4012,14 +4581,9 @@ if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];
   'autoResumeAudioContext',
   'getDynCaller',
   'dynCall',
-  'runtimeKeepalivePush',
-  'runtimeKeepalivePop',
-  'callUserCallback',
-  'maybeExit',
   'asmjsMangle',
   'alignMemory',
   'HandleAllocator',
-  'getNativeTypeSize',
   'addOnInit',
   'addOnPostCtor',
   'addOnPreMain',
@@ -4093,7 +4657,6 @@ if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];
   'checkWasiClock',
   'wasiRightsToMuslOFlags',
   'wasiOFlagsToMuslOFlags',
-  'safeSetTimeout',
   'setImmediateWrapped',
   'safeRequestAnimationFrame',
   'clearImmediateWrapped',
@@ -4141,8 +4704,11 @@ if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];
   'allocate',
   'writeStringToMemory',
   'writeAsciiToMemory',
+  'allocateUTF8',
+  'allocateUTF8OnStack',
   'demangle',
   'stackTrace',
+  'getNativeTypeSize',
 ];
 missingLibrarySymbols.forEach(missingLibrarySymbol)
 
@@ -4152,7 +4718,6 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'err',
   'callMain',
   'abort',
-  'wasmMemory',
   'wasmExports',
   'HEAPF32',
   'HEAPF64',
@@ -4186,9 +4751,14 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'getExecutableName',
   'handleException',
   'keepRuntimeAlive',
+  'runtimeKeepalivePush',
+  'runtimeKeepalivePop',
+  'callUserCallback',
+  'maybeExit',
   'asyncLoad',
   'mmapAlloc',
   'wasmTable',
+  'wasmMemory',
   'getUniqueRunDependency',
   'noExitRuntime',
   'addRunDependency',
@@ -4222,6 +4792,7 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'doWritev',
   'initRandomFill',
   'randomFill',
+  'safeSetTimeout',
   'emSetImmediate',
   'emClearImmediate_deps',
   'emClearImmediate',
@@ -4230,7 +4801,6 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'exceptionLast',
   'exceptionCaught',
   'Browser',
-  'requestFullscreen',
   'requestFullScreen',
   'setCanvasSize',
   'getUserMedia',
@@ -4265,7 +4835,6 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'FS_ignorePermissions',
   'FS_filesystems',
   'FS_syncFSRequests',
-  'FS_readFiles',
   'FS_lookupPath',
   'FS_getPath',
   'FS_hashName',
@@ -4381,8 +4950,6 @@ missingLibrarySymbols.forEach(missingLibrarySymbol)
   'IDBStore',
   'SDL',
   'SDL_gfx',
-  'allocateUTF8',
-  'allocateUTF8OnStack',
   'print',
   'printErr',
   'jstoi_s',
@@ -4397,6 +4964,8 @@ unexportedSymbols.forEach(unexportedRuntimeSymbol);
 
 function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
+  ignoredModuleProp('logReadFiles');
+  ignoredModuleProp('loadSplitModule');
 }
 
 // Imports from the Wasm binary.
@@ -4411,9 +4980,25 @@ var _emscripten_stack_get_end = makeInvalidEarlyAccess('_emscripten_stack_get_en
 var __emscripten_stack_restore = makeInvalidEarlyAccess('__emscripten_stack_restore');
 var __emscripten_stack_alloc = makeInvalidEarlyAccess('__emscripten_stack_alloc');
 var _emscripten_stack_get_current = makeInvalidEarlyAccess('_emscripten_stack_get_current');
+var memory = makeInvalidEarlyAccess('memory');
+var __indirect_function_table = makeInvalidEarlyAccess('__indirect_function_table');
+var wasmMemory = makeInvalidEarlyAccess('wasmMemory');
 
 function assignWasmExports(wasmExports) {
-  Module['_main'] = _main = createExportWrapper('main', 2);
+  assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
+  assert(typeof wasmExports['__funcs_on_exit'] != 'undefined', 'missing Wasm export: __funcs_on_exit');
+  assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
+  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
+  assert(typeof wasmExports['emscripten_stack_init'] != 'undefined', 'missing Wasm export: emscripten_stack_init');
+  assert(typeof wasmExports['emscripten_stack_get_free'] != 'undefined', 'missing Wasm export: emscripten_stack_get_free');
+  assert(typeof wasmExports['emscripten_stack_get_base'] != 'undefined', 'missing Wasm export: emscripten_stack_get_base');
+  assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
+  assert(typeof wasmExports['_emscripten_stack_restore'] != 'undefined', 'missing Wasm export: _emscripten_stack_restore');
+  assert(typeof wasmExports['_emscripten_stack_alloc'] != 'undefined', 'missing Wasm export: _emscripten_stack_alloc');
+  assert(typeof wasmExports['emscripten_stack_get_current'] != 'undefined', 'missing Wasm export: emscripten_stack_get_current');
+  assert(typeof wasmExports['memory'] != 'undefined', 'missing Wasm export: memory');
+  assert(typeof wasmExports['__indirect_function_table'] != 'undefined', 'missing Wasm export: __indirect_function_table');
+  _main = Module['_main'] = createExportWrapper('main', 2);
   ___funcs_on_exit = createExportWrapper('__funcs_on_exit', 0);
   _fflush = createExportWrapper('fflush', 1);
   _strerror = createExportWrapper('strerror', 1);
@@ -4424,7 +5009,10 @@ function assignWasmExports(wasmExports) {
   __emscripten_stack_restore = wasmExports['_emscripten_stack_restore'];
   __emscripten_stack_alloc = wasmExports['_emscripten_stack_alloc'];
   _emscripten_stack_get_current = wasmExports['emscripten_stack_get_current'];
+  memory = wasmMemory = wasmExports['memory'];
+  __indirect_function_table = wasmExports['__indirect_function_table'];
 }
+
 var wasmImports = {
   /** @export */
   _abort_js: __abort_js,
@@ -4550,11 +5138,11 @@ run();
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
  *
- * This file gets implicatly injected as a `--post-js` file when
+ * This file gets implicitly injected as a `--post-js` file when
  * emcc is run with `--emrun`
  */
 
-if (typeof window == "object" && (typeof ENVIRONMENT_IS_PTHREAD == 'undefined' || !ENVIRONMENT_IS_PTHREAD)) {
+if (globalThis.window && (typeof ENVIRONMENT_IS_PTHREAD == 'undefined' || !ENVIRONMENT_IS_PTHREAD)) {
   var emrun_register_handlers = () => {
     // When C code exit()s, we may still have remaining stdout and stderr
     // messages in flight. In that case, we can't close the browser until all
@@ -4636,7 +5224,7 @@ if (typeof window == "object" && (typeof ENVIRONMENT_IS_PTHREAD == 'undefined' |
     http.send(data); // XXX  this does not work in workers, for some odd reason (issue #2681)
   };
 
-  if (typeof document != 'undefined') {
+  if (globalThis.document) {
     emrun_register_handlers();
   }
 }

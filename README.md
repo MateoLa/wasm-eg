@@ -84,9 +84,12 @@ The directory structure is as follows:
 
 `pong_wasm.js` instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.
 Read the comments at the begining of any JS glue code to learn how to use the variable.<br>
-Here we use the 4th option. In `pong.html` we define a Module variable to execute render(). Then the glue code adds to it all the C++ functions and classes we going to use.
+Here we use the 4th option. In `pong.html` we define a Module variable to execute render().<br>
+Then the "pong_wasm.js" adds to it all the C++ functions and classes we going to use.
 
 Note also that pong.html use Emscripten event `onRuntimeInitialized` to delay function calls until the Wasm artifact is fully loaded.
+
+In pong.js we execute Module.getAIMove() wich is the functions we move to pong.cpp.
 
 
 #### Passing Complex Data with Embind
@@ -98,10 +101,56 @@ Compare /start/pong.cpp and /embind_classes/pong.cpp and see how emscripten mana
 You can also write JS functions inside C/C++. In /dom_control/pong.html we can see how the "<canvas>" tag has been removed and included bia "drawCanvas" a JS function inside C++ code. This type of js block must be declared using `EM_JS` emscripten tool. The function is executed calling "createInitialGameState()" in /dom_control/pong.cpp
 
 
-#### Memory Model
+#### WebAssembly Modules
 
-The other way: C/C++ calling JS functions.
+In the JS glue code Emscripten instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
+By default the glue code loads the module globally, causing multiple instances to collide.
 
+
+
+You can compile a factory module to work with node.js.
+
+```sh
+emcc hello.cpp -o hello.js -O3 -s MODULARIZE -s EXPORT_ES6
+```
+
+Then in your app's entry module:
+
+```js
+import "./hello.js";
+```
+
+This allows us to produce multiple instances of the module. By default the glue code loads the module globally, causing multiple instances to collide.
+
+If your output extension is .js and not .mjs, then you have to add `-s EXPORT_ES6` to output a JavaScript module.
+
+The module contains a Preamble which defines a set of useful functions like:
+ * getValue/setValue
+ * ccall/cwrap
+ * string conversion functions
+ * heap accessors
+
+```js
+// pre.js:
+Module['print'] = function(text) { console.log('stdout: ' + text) };
+```
+
+Now you can compile with Emscripten adding the preamble at the begining of the JS glue code.
+
+```sh
+emcc hello.cpp -o hello.html --emrun --pre-js pre.js
+emrun hello.html
+```
+
+In your browser console type Module and see all the functions it provides.<br>
+In the browser console run Module.print('Jelou from MaLa')
+
+
+#### Performing in Parallel
+
+Any C++ code that is using `pthreads` or std::threads can be ported to WebAssembly.<br>
+Use SharedArrayBuffer and Web Workers to achieve parallelism (The browser must support them).<br>
+Complie with `-s USE_PTHREADS=1`
 
 
 #### Docs
