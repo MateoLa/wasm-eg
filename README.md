@@ -101,12 +101,10 @@ Compare /start/pong.cpp and /embind_classes/pong.cpp and see how emscripten mana
 You can also write JS functions inside C/C++. In /dom_control/pong.html we can see how the "<canvas>" tag has been removed and included bia "drawCanvas" a JS function inside C++ code. This type of js block must be declared using `EM_JS` emscripten tool. The function is executed calling "createInitialGameState()" in /dom_control/pong.cpp
 
 
-#### WebAssembly Modules
+#### WebAssembly Module Variable
 
-In the JS glue code Emscripten instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
-By default the glue code loads the module globally, causing multiple instances to collide.
-
-
+Emscripten JS glue code Emscripten instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
+By default the variable is loaded globally causing multiple instances to collide.
 
 You can compile a factory module to work with node.js.
 
@@ -120,9 +118,9 @@ Then in your app's entry module:
 import "./hello.js";
 ```
 
-This allows us to produce multiple instances of the module. By default the glue code loads the module globally, causing multiple instances to collide.
+This allows us to produce multiple instances of "Module".
 
-If your output extension is .js and not .mjs, then you have to add `-s EXPORT_ES6` to output a JavaScript module.
+To output a JS module the `-s EXPORT_ES6` setting is needed if your output extension is .js and not .mjs.
 
 The module contains a Preamble which defines a set of useful functions like:
  * getValue/setValue
