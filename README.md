@@ -45,6 +45,7 @@ emcc --version
 In a browser we going to run the main() C++ function in hello.cpp.
 
 ```sh
+cd hello
 emcc hello.cpp -o hello.html --emrun
 emrun hello.html
 ```
@@ -56,18 +57,40 @@ emrun is a local web sever and test tool used to host and launch the compliled h
 And that's it. We are using hello.js glue code to run C code into the browser.
 
 
-#### Guess Example
+#### Make a game in C run in a web browser
 
-Guessing game uses stdin, stdout and stderr. It runs in a while loop. We don't want to run it as is directly in the browser. Javascript being single threaded will hang waiting for that loop to finish. You will get a browser notification about a "Memory out of bounds" error.
-
-This will be very important in another repo when we going to compile Stockfish for WebAssembly.
-
-For this reason we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
+In a WebAssembly (Wasm) environment, C++ while or for loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
 
 ```sh
+cd loop
+emcc guess.cpp -o guess.js --std=c++17
+emrun guess.html --no_emrun_detect
+```
+
+The code in `guess.cpp` works on a desktop but will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+
+
+* Memory Out of Bounds error<br>
+Here we force a JS "RuntimeError: memory access out of bounds" error.
+
+```sh
+cd loop
+emcc loop.cpp -o loop.js --std=c++17 --bind
+emrun loop.html --no_emrun_detect
+```
+
+
+#### Guess Game Example
+
+In the guessing game, to avoid Javascript hanging indefenitely we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
+
+
+```sh
+cd guess
 emcc guessing.cpp -o guess.html --std=c++17 --emrun
 emrun guess.html
 ```
+
 
 
 ### Calling C/C++ functions from Javascript
