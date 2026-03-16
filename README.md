@@ -56,6 +56,20 @@ emrun is a local web sever and test tool used to host and launch the compliled h
 And that's it. We are using hello.js glue code to run C code into the browser.
 
 
+#### Guess Example
+
+Guessing game uses stdin, stdout and stderr. It runs in a while loop. We don't want to run it as is directly in the browser. Javascript being single threaded will hang waiting for that loop to finish. You will get a browser notification about a "Memory out of bounds" error.
+
+This will be very important in another repo when we going to compile Stockfish for WebAssembly.
+
+For this reason we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
+
+```sh
+emcc guessing.cpp -o guess.html --std=c++17 --emrun
+emrun guess.html
+```
+
+
 ### Calling C/C++ functions from Javascript
 
 <div align="center">
