@@ -57,42 +57,6 @@ emrun is a local web sever and test tool used to host and launch the compliled h
 And that's it. We are using hello.js glue code to run C code into the browser.
 
 
-#### Make a game in C run in a web browser
-
-In a WebAssembly (Wasm) environment, C++ while or for loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
-
-```sh
-cd loop
-emcc guess.cpp -o guess.js --std=c++17
-emrun guess.html --no_emrun_detect
-```
-
-The code in `guess.cpp` works on a desktop but will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
-
-
-* Memory Out of Bounds error<br>
-Here we force a JS "RuntimeError: memory access out of bounds" error.
-
-```sh
-cd loop
-emcc loop.cpp -o loop.js --std=c++17 --bind
-emrun loop.html --no_emrun_detect
-```
-
-
-#### Guess Game Example
-
-In the guessing game, to avoid Javascript hanging indefenitely we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
-
-
-```sh
-cd guess
-emcc guessing.cpp -o guess.html --std=c++17 --emrun
-emrun guess.html
-```
-
-
-
 ### Calling C/C++ functions from Javascript
 
 <div align="center">
@@ -108,6 +72,7 @@ From a Ping-Pong game entirely in JS (/original/pong.js), we will migrate some f
 To do this, we will use a tool called embind (part of the Emscripten toolchain, --bind option)
 
 ```sh
+cd start
 emcc pong.cpp -o pong_wasm.js --std=c++17 --bind
 emrun pong.html --no_emrun_detect
 ```
@@ -115,30 +80,30 @@ emrun pong.html --no_emrun_detect
 The directory structure is as follows:
   - /original, the ping-pong game in its original JS and html files.
   - /start, the initial modifications to make the wasm module work
-  - /embind_classes, C++ functions and classes can be linked with Emscripten
-  - /dom_control, defining JS functions inside C/C++ code
-  - /final, 
+  - /embind_classes, passing C++ functions and classes with Emscripten
+  - /dom_control, JS functions inside the C/C++ code
+  - /final, the final WebAssembly ping-pong game
 
 `pong_wasm.js` instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.
-Read the comments at the begining of any JS glue code to learn how to use the variable.<br>
+You could read the comments at the begining of any JS glue code to learn how to use the variable.<br>
 Here we use the 4th option. In `pong.html` we define a Module variable to execute render().<br>
 Then the "pong_wasm.js" adds to it all the C++ functions and classes we going to use.
 
 Note also that pong.html use Emscripten event `onRuntimeInitialized` to delay function calls until the Wasm artifact is fully loaded.
 
-In pong.js we execute Module.getAIMove() wich is the functions we move to pong.cpp.
+In pong.js we execute Module.getAIMove() wich is the C++ function we move to pong.cpp.
 
 
 #### Passing Complex Data with Embind
 
 Embind supports classes, pointers, arrays, smart pointers, memory views, inheritance and polymorphism.<br>
 
-Compare /start/pong.cpp and /embind_classes/pong.cpp and see how emscripten manage enums, value objects, classes and functions.
+You could check /embind_classes/pong.cpp to see how emscripten manage enums, value objects, classes and functions.
 
-You can also write JS functions inside C/C++. In /dom_control/pong.html we can see how the "<canvas>" tag has been removed and included bia "drawCanvas" a JS function inside C++ code. This type of js block must be declared using `EM_JS` emscripten tool. The function is executed calling "createInitialGameState()" in /dom_control/pong.cpp
+Also you can write JS functions inside C/C++. In /dom_control/pong.html you can see how the "<canvas>" tag has been removed and included bia "drawCanvas" a JS function inside C++. This type of js block must be declared using `EM_JS` emscripten tool. The function is executed calling "createInitialGameState()" in /dom_control/pong.cpp
 
 
-#### WebAssembly Module Variable
+#### Module (WebAssembly Variable)
 
 Emscripten JS glue code Emscripten instantiates a variable `Module` which enables the use of the functions and classes defined in C/C++.<br>
 By default the variable is loaded globally causing multiple instances to collide.
@@ -186,6 +151,75 @@ In the browser console run Module.print('Jelou from MaLa')
 Any C++ code that is using `pthreads` or std::threads can be ported to WebAssembly.<br>
 Use SharedArrayBuffer and Web Workers to achieve parallelism (The browser must support them).<br>
 Complie with `-s USE_PTHREADS=1`
+
+
+#### Make a C/C++ game run in a web browser
+
+In a WebAssembly (Wasm) environment, C++ while or for loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
+
+```sh
+cd loop
+emcc guess.cpp -o guess.js --std=c++17
+emrun guess.html --no_emrun_detect
+```
+
+The code in `guess.cpp` works on a desktop but will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+
+Emscripten solves this by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls.
+
+```sh
+cd guess
+emcc guess.cpp -o guess.js --std=c++17
+emrun guess.html --no_emrun_detect
+```
+
+* void emscripten_set_main_loop(func, int fps, int simulate_infinite_loop);
+
+or the version with a user-defined argument:
+
+* void emscripten_set_main_loop_arg(func, void *arg, int fps, int simulate_infinite_loop);
+
+func: A pointer to the C function that will serve as the main loop iteration. It must have a void return type and accept void (or void* for the _arg version) as an argument.
+
+fps: The desired number of calls per second. Setting 0 or a negative value is highly recommended for rendering applications. This uses the browser's requestAnimationFrame mechanism, which ensures smooth rendering synchronized with the monitor's refresh rate.
+
+simulate_infinite_loop: A boolean (0 or 1) that controls behavior after the call.<br>
+If true (1), the function throws an exception in JavaScript to immediately stop execution of the calling C main() function, preventing any shutdown code from running prematurely and effectively simulating an infinite loop.<br>
+If false (0), execution continues in the main() function after the call to emscripten_set_main_loop.
+
+
+
+
+* Memory Out of Bounds error<br>
+Here we force a JS "RuntimeError: memory access out of bounds" error.
+
+```sh
+cd loop
+emcc loop.cpp -o loop.js --std=c++17 --bind
+emrun loop.html --no_emrun_detect
+```
+
+
+#### Guess Game Example
+
+In the guessing game, to avoid Javascript hanging indefenitely we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
+
+
+```sh
+cd guess
+emcc guessing.cpp -o guess.html --std=c++17 --emrun
+emrun guess.html
+```
+
+
+
+
+
+
+
+
+
+
 
 
 #### Docs

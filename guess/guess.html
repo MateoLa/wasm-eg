@@ -1,49 +1,28 @@
 <html>
     <head>
-        <title>C++ Loop</title>
+        <title>Guess Game</title>
         <script type="text/javascript">
+            var output = null;
+
+            document.addEventListener("DOMContentLoaded", function() {
+                output = document.getElementById("output");
+            });
+
             var Module = {
+                print: function(text) {
+                    output.value += text + "\n";
+                    output.scrollTop = output.scrollHeight; // Auto-scroll
+                },
                 onRuntimeInitialized: function() {
                     console.log('Module loaded: ', Module);
                 }
             };
         </script>
-        <script>
-            var input = null;
-            var output = null;
-
-            document.addEventListener("DOMContentLoaded", function() {
-                input = document.getElementById("incommand");
-                output = document.getElementById("output");
-            });
-
-            function add_output(text) {
-                output.value += text + "\n";
-                output.scrollTop = output.scrollHeight;
-            }
-
-            Stockfish().then(function (fish) {
-                sf = fish;
-                sf.read_stdout = add_output;
-            });
-
-            function send_command() {
-                add_output("input> " + input.value);
-                sf.send_command(input.value);
-                input.value = "";
-            }
-
-            function keydown() {
-                if (event.key === "Enter") send_command();
-            }
-        </script>
         <script src="guess.js" type="text/javascript"></script>
     </head>
     <body>
-        <input type="text" id="incommand" size="50" placeholder="UCI command" onkeydown="keydown()" />
-        <input type="button" value="SendCommand" onclick="send_command()" />
         <br />
         <h4>Output</h4>
-        <textarea id="output" readonly rows="50" cols="100"> </textarea>
+        <textarea id="output" rows="50" cols="100" readonly> </textarea>
     </body>
 </html>
