@@ -1,31 +1,27 @@
-#include <iostream>
+#include <cstdlib>
 #include <vector>
+#include <iostream>
 
 #include <emscripten.h>
 #include <emscripten/bind.h>
 
-void create_memory_error() {
-    std::vector<int*> pointers;
-    // An infinite loop condition is simulated here (e.g., a logic error in a real program)
-    // In a real WASM scenario, this might be triggered if a condition is never met.
-    // The following will rapidly consume all memory.
+void mem_alloc_error() {
+    std::vector<int> output;
+    int nr;
+
     while (true) {
-        // Allocate memory dynamically in the loop
-        int* ptr = new int[1000];
-        if (ptr == nullptr) {
-            // Handle allocation failure if possible
-            break;
-        }
-        pointers.push_back(ptr);
-        // In a real application, the infinite loop might also include 
-        // array indexing that eventually goes out of bounds of the initially 
-        // defined static or dynamically growing memory. 
-        // In Wasm, this will eventually trigger a "memory access out of bounds" trap 
-        // as it runs out of the browser's maximum allocated Wasm memory.
+        nr = rand();
+        output.push_back(nr);
     }
 }
 
+void out_of_bounds_error() {
+    volatile int * ptr = (int*)100000000;
+    *ptr = 42;
+}
+
 EMSCRIPTEN_BINDINGS(loop) {
-    emscripten::function("create_memory_error", &create_memory_error);
+    emscripten::function("mem_alloc_error", &mem_alloc_error);
+    emscripten::function("out_of_bounds_error", &out_of_bounds_error);
 }
 

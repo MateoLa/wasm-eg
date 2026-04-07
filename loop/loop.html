@@ -5,13 +5,29 @@
             var Module = {
                 onRuntimeInitialized: function() {
                     console.log('Module loaded: ', Module);
-                    const error = Module.create_memory_error();
                 }
             };
         </script>
         <script src="loop.js" type="text/javascript"></script>
     </head>
+
     <body style="text-align:center">
-        <h4>Check your console for JS RuntimeError: memory access out of bounds</h4>
+        <h4>Check your console for JS Errors</h4>
+        <button id="oob_error">Memory out of bounds</button>
+        <button id="alloc_error">Memory Allocation error</button>
+
+        <script type="text/javascript">
+            const oob = document.getElementById("oob_error");
+            oob.addEventListener('click', (event) => {
+                console.log("Memory OOB error");
+                Module.out_of_bounds_error();
+            });
+
+            const alloc_error = document.getElementById("alloc_error");
+            alloc_error.addEventListener('click', (event) => {
+                console.log("Memory Allocation Error");
+                Module.mem_alloc_error();
+            });
+        </script>
     </body>
 </html>

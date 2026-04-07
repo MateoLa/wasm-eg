@@ -46,7 +46,7 @@ int main(){
         emscripten_set_main_loop_arg(main_loop, &secretNumber, 0, 1);
     #else
         while (1) {
-            main_loop_function();
+            main_loop();
         }
     #endif
 

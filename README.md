@@ -155,15 +155,15 @@ Complie with `-s USE_PTHREADS=1`
 
 #### Make a C/C++ game run in a web browser
 
-In a WebAssembly (Wasm) environment, C++ while or for loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
+C++ loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
 
 ```sh
-cd loop
+cd guess_loop
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-The code in `guess.cpp` works on a desktop but will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+The `guess.cpp` code works on desktop but it will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
 
 Emscripten solves this by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls.
 
@@ -188,9 +188,8 @@ If true (1), the function throws an exception in JavaScript to immediately stop 
 If false (0), execution continues in the main() function after the call to emscripten_set_main_loop.
 
 
+#### Memory Out of Bounds error<br>
 
-
-* Memory Out of Bounds error<br>
 Here we force a JS "RuntimeError: memory access out of bounds" error.
 
 ```sh
@@ -198,28 +197,6 @@ cd loop
 emcc loop.cpp -o loop.js --std=c++17 --bind
 emrun loop.html --no_emrun_detect
 ```
-
-
-#### Guess Game Example
-
-In the guessing game, to avoid Javascript hanging indefenitely we going to include an `emscripten_set_main_loop_arg` function that represents one iteration of the loop. This way JS runs that iteration and yields the processor back so doesn't appear blocked.
-
-
-```sh
-cd guess
-emcc guessing.cpp -o guess.html --std=c++17 --emrun
-emrun guess.html
-```
-
-
-
-
-
-
-
-
-
-
 
 
 #### Docs
