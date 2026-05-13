@@ -606,7 +606,7 @@ function createExportWrapper(name, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile('pong_wasm.wasm');
+  return locateFile('pp_wasm.wasm');
 }
 
 function getBinarySync(file) {

@@ -10,12 +10,11 @@
  * The main loop handler called repeatedly by the browser's event loop.
  * It must have a void* parameter
  */
-void main_loop(void * _secretNumber){
+void one_frame(void * _secretNumber){
     // Convert the void pointer back into an integer
     const auto secretNumber = static_cast<int*>(_secretNumber);
 
     int userGuess;
-    std::cout << "Please enter a guess (1-100): \n";
     std::cin >> userGuess;
 
     if (userGuess > 100 || userGuess < 1) {
@@ -40,13 +39,11 @@ int main(){
     srand(time(NULL));
     secretNumber = rand() % MAX_NUMBER + 1;
 
-    std::cout << "Welcome to the Number Guessing Game!\n" << std::endl;
-
     #ifdef EMSCRIPTEN
-        emscripten_set_main_loop_arg(main_loop, &secretNumber, 0, 1);
+        emscripten_set_main_loop_arg(one_frame, &secretNumber, 0, 1);
     #else
         while (1) {
-            main_loop();
+            one_frame();
         }
     #endif
 
