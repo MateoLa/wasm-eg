@@ -75,7 +75,7 @@ We choose the function `getAIMove()` to be moved to pong.cpp.
 we will use a tool called embind (part of the Emscripten toolchain) to bind the C++ function to JS: --bind option. 
 
 ```sh
-cd start
+cd pong/start
 emcc pong.cpp -o pp_wasm.js --std=c++17 --bind
 emrun pong.html --no_emrun_detect
 ```
@@ -113,7 +113,7 @@ Also you can write JS functions inside C/C++. This type of js block must be decl
 C++ loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
 
 ```sh
-cd hangs
+cd guess/hangs
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
@@ -124,7 +124,7 @@ Emscripten solves this by telling the runtime to call a specified function perio
 Another option is to use `Asyncify` which will rewrite the program so that it can return to the browser's main event loop by just calling "emscripten_sleep()".
 
 ```sh
-cd runs
+cd guess/runs
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
@@ -148,15 +148,25 @@ Obs: when emscripten_set_main_loop() runs, it yields execution back to the brows
 `FS.stdin` is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
 
 
-#### Memory Out of Bounds error<br>
+#### Stockfish Wasm Communications
 
-Here we force a JS "RuntimeError: memory access out of bounds" error.
+<div align="center">
+
+<img src="assets/sf_128.png" width="150" height="150"/>
+
+<h4>Stockfish Web Integration example</h4>
+
+</div>
+
+In this example we going to emulate the communication from the browser with Stockfish. <br>
+Let's see how its main loop is supposed to work.
 
 ```sh
-cd loop
-emcc loop.cpp -o loop.js --std=c++17 --bind
-emrun loop.html --no_emrun_detect
+cd sf_loop
+emcc sf.cpp -o sf.js --std=c++17 --bind
+emrun sf.html --no_emrun_detect
 ```
+
 
 
 #### Docs

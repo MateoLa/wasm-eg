@@ -39,21 +39,23 @@ Emscripten requires a large variety of JavaScript "glue" code to handle memory a
 emcc -o hello.js hello.c -O3
 ```
 
-Alternatively, you can produce a factory module to work with node.js.
+By default, in the JS glue, Emscripten creates a variable "Module" that can be used. <br>
+The variable is loaded globally, causing multiple instances to collide. <br>
+Alternatively, you can produce a factory module to work.
 
+If you compile with `-s MODULARIZE=1` the Module variable is now a factory function that returns a promise.
 
 ```sh
 emcc -o hello.js hello.c -O3 -sMODULARIZE -sEXPORT_ES6
 ```
 
-You could then incorporate this JavaScript file into your program.<br>
-In your app's entry module:
+Then, you can import the module into your program.<br>
 
 ```js
 import "./hello.js";
 ```
 
-This also enables to produce multiple instances of the module. By default the glue code loads the module globally, causing multiple instances to collide.
+This also enables to produce multiple instances of the module..
 
 If your output extension is .js and not .mjs, then you have to add `-s EXPORT_ES6` to output a JavaScript module.
 
