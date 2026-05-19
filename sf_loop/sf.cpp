@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <emscripten.h>
 #include <emscripten/bind.h>
 
@@ -12,52 +13,37 @@ std::string engine_info() {
 
 
 // from uci.cpp
-void loop(int argc, std::string argv) {
-    std::string token;
+// Execute UCI::loop() only once.
+void one_frame(void * _token) {
+    std::stringstream ss;
+    ss << static_cast<char*>(_token);
+    std::string token = ss.str();
 
-    do
-    {
-        if (argc == 1 && !getline(std::cin, token)) token = "quit";
-    std::cout << "MaLa debugging: Into the loop. Not waiting." << std::endl;
-
-        token.clear();  // Avoid a stale if getline() returns nothing or a blank line
-        token = argv;
-
-        if (token == "quit" || token == "stop") emscripten_cancel_main_loop();
-
-        // The GUI sends 'ponderhit' to tell that the user has played the expected move.
-        // So, 'ponderhit' is sent if pondering was done on the same move that the user
-        // has played. The search should continue, but should also switch from pondering
-        // to the normal search.
-        else if (token == "ponderhit")
-            std::cout << "MaLa debugging: Ponderhit Command" << std::endl;
-        else if (token == "uci")
-            std::cout << "MaLa debugging: uciok" << std::endl;
-        else if (token == "setoption")
-            std::cout << "MaLa debugging: SetOption" << std::endl;
-        else if (token == "go")
-            std::cout << "MaLa debugging: GO" << std::endl;
-        else if (token == "--help" || token == "help" || token == "--license" || token == "license")
-            std::cout
-              << "\nStockfish is a powerful chess engine for playing and analyzing."
-                 "\nIt is released as free software licensed under the GNU GPLv3 License."
-                 "\nStockfish is normally used with a graphical user interface (GUI) and implements"
-                 "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
-                 "\nFor any further information, visit https://github.com/official-stockfish/Stockfish#readme"
-                 "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n"
-              << std::endl;
-        else if (!token.empty() && token[0] != '#')
-            std::cout << "Unknown command: '" << token << "'. Type help for more information."
-                      << std::endl;
-std::cout << "MaLa debugging: Into the loop. Token: " + token << std::endl;
-std::cout << "MaLa debugging: Into the loop. Arg Counter: " + std::to_string(argc) << std::endl;
-    } while (token != "quit" && argc == 1);  // The command-line arguments are one-shot
+    if (token == "quit" || token == "stop") emscripten_cancel_main_loop();
+    else if (token == "ponderhit")
+        std::cout << "MaLa debugging: Ponderhit Command" << std::endl;
+    else if (token == "uci")
+        std::cout << "MaLa debugging: uciok" << std::endl;
+    else if (token == "setoption")
+        std::cout << "MaLa debugging: SetOption" << std::endl;
+    else if (token == "go")
+        std::cout << "MaLa debugging: GO" << std::endl;
+    else if (token == "--help" || token == "help" || token == "--license" || token == "license")
+        std::cout
+            << "\nStockfish is a powerful chess engine for playing and analyzing."
+                "\nIt is released as free software licensed under the GNU GPLv3 License."
+                "\nStockfish is normally used with a graphical user interface (GUI) and implements"
+                "\nthe Universal Chess Interface (UCI) protocol to communicate with a GUI, an API, etc."
+                "\nFor any further information, visit https://github.com/official-stockfish/Stockfish#readme"
+                "\nor read the corresponding README.md and Copying.txt files distributed along with this program.\n"
+            << std::endl;
+    else if (!token.empty() && token[0] != '#')
+        std::cout << "Unknown command: '" << token << "'. Type help for more information." << std::endl;
 }
 
 
-// Execute UCI::loop() only once.
-extern "C" void wasm_uci_execute(int argc, std::string argv) {
-    loop(argc, argv);
+extern "C" void wasm_uci_execute(std::string argv) {
+    emscripten_set_main_loop_arg(one_frame, &argv, 0, 1);
     std::cout << "MaLa debugging: Exiting UCI Loop" << std::endl;
 }
 
@@ -67,7 +53,8 @@ int main(int argc, char* argv[]) {
 
     std::string my_argv;
     for (int i = 0; i < argc; ++i) my_argv += argv[i] + std::string(" ");
-    wasm_uci_execute(argc, my_argv);
+
+    wasm_uci_execute(my_argv);
 
     return 0;
 }

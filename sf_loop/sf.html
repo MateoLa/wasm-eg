@@ -14,10 +14,11 @@
 
                     FS.init(stdin, null, null);
                 },
+                send_command: (data) => { Module.wasm_uci_execute(data) },
                 onRuntimeInitialized: function() {
                     console.log('Module loaded: ', Module);
 //                    const wasm_uci_execute = Module.cwrap("wasm_uci_execute", "void", []);
-                    Module.wasm_uci_execute(0, "");
+                    Module.wasm_uci_execute("");
                 }
             };
         </script>
@@ -35,7 +36,7 @@
 
                 function send_command() {
                     add_output("input> " + command.value);
-                    sf.send_command(command.value);
+                    Module.send_command(command.value);
                     command.value = "";
                 }
 

@@ -112,40 +112,58 @@ Also you can write JS functions inside C/C++. This type of js block must be decl
 
 C++ loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
 
+The `guess.cpp` code works on desktop but it will crash in the browser. The `while` loop and also the `std::cin >> userGuess;` statement inside the loop blocks the browser's main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+
+Test the C++ program from the terminal:
+```sh
+cd guess/hangs
+g++ guess.cpp -o myprogram
+./myprogram
+```
+
+Compile with emscripten and navigate to the web page:
 ```sh
 cd guess/hangs
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-The `guess.cpp` code works on desktop but it will crash in the browser. The `std::cin >> userGuess;` statement inside the while loop blocks the main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+Emscripten solves this by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls.
 
-Emscripten solves this by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls. <br>
-Another option is to use `Asyncify` which will rewrite the program so that it can return to the browser's main event loop by just calling "emscripten_sleep()".
+Obs: From now on, test your C/C++ program from the terminal before compiling with Emscripten.
 
 ```sh
-cd guess/runs
+cd guess/hangs2
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-* void emscripten_set_main_loop(function, int fps, int simulate_infinite_loop);
+In emscripten_set_main_loop(function, int fps, int s_i_l):
 
-or the version with a user-defined argument:
-
-* void emscripten_set_main_loop_arg(function, void *arg, int fps, int simulate_infinite_loop);
-
-`function` is a pointer to the C function that will serve as the main loop iteration. It must have a void return type and accept void (or void* for the _arg version) as an argument.
+`function` is a pointer to the C function that will serve as the main loop iteration. It must have a void return type and accept void as an argument.
 
 `fps` is the desired number of calls per second. Setting 0 or a negative value is highly recommended for rendering applications. This uses the browser's requestAnimationFrame mechanism, which ensures smooth rendering synchronized with the monitor's refresh rate.
 
-`simulate_infinite_loop`: A boolean (0 or 1) that controls behavior after the call.<br>
+`s_i_l` (simulate_infinite_loop) is a boolean (0 or 1) that controls behavior after the call.<br>
 If true (1), the function throws an exception in JavaScript to immediately stop execution of the calling C main() function, preventing any shutdown code from running prematurely and effectively simulating an infinite loop.<br>
 If false (0), execution continues in the main() function after the call to emscripten_set_main_loop.
 
-Obs: when emscripten_set_main_loop() runs, it yields execution back to the browser's event loop on every frame. If you attempt a `cin >> x` inside the "function", it will immediately read whatever is in the stdin buffer (often an empty string or a newline character) without actually waiting for the user to type anything. To solve this one option is to flush the cin buffer (clear & synch).
+We can also use the version with a user-defined argument "void emscripten_set_main_loop_arg(function, void *arg, int fps, int s_i_l)".
 
-`FS.stdin` is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
+In the Module.preRun, we rewrite the WebAssembly `FS.stdin` function. This avoid the JS `window.popup` that is automatically binded to C++ `std::cin`. <br>
+The `FS.stdin` function is low-level and handles input character-by-character. It is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
+
+Obs: If the "function" from the emscripten_set_main_loop outputs something to std::cout, this will be printed continuosly and every time the loop runs.
+
+Obs: Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread of the borwser. JS cannot perform synchronous blocking I/O without hanging the entire page. Emscripten stdin defaults to always instantly return EOF. <br>
+To fix this, choose one of the following approaches:
+  - Direct Communication: use Module.ccall or Module.cwrap to send strings or buffers directly to your C++ functions.
+  - Pthreads + Proxy. run your main function in a background web worker allowing the heavy blocking behavior.
+  - Abandon `while(std::cin)` loop entirely.
+
+
+
+
 
 
 #### Stockfish Wasm Communications
@@ -174,3 +192,8 @@ emrun sf.html --no_emrun_detect
 [Webassembly](/docs/webassembly.md) <br>
 [Web Workers](/docs/web_workers.md) <br>
 [Wasm Workers](/docs/wasm_workers.md) <br>
+
+
+#### Lesson
+
+In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.

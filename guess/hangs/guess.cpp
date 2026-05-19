@@ -2,7 +2,10 @@
 #include <iostream>
 #include <time.h>
 
-#include <emscripten.h>
+#ifdef __EMSCRIPTEN__
+    #include <emscripten.h>
+#endif
+
 
 int main(){
     int secretNumber, userGuess;
