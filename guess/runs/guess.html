@@ -1,26 +1,15 @@
+<!DOCTYPE html>
 <html>
     <head>
-        <title>C++ Loop</title>
+        <title>C++ Game</title>
         <link rel="icon" type="image/x-icon" href="ask.png">
         <script type="text/javascript">
-            var Module = {
-                stdinBuffer: {
-                    str: "",
-                    index: 0,
-                    set: function(str) {
-                        this.str = str + "\n";
-                        this.index = 0;
-                    },
-                },
-                stdin: function() {
-                    let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
-                    return isNaN(code) ? null : code;
-                },
-                print: (text) => { console.log(text) },
-                onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
-            };
-        </script>
-        <script type="text/javascript">
+            const worker = new Worker('/worker.js', { type: 'module' });
+            worker.onerror = (event) => {
+                console.log("MaLa Worker Error: ", event);
+                console.error("Message: ", event.message);
+            }
+
             window.addEventListener('DOMContentLoaded', () => {
                 var guess = document.getElementById("guess");
                 var result = document.getElementById("result");
@@ -28,7 +17,7 @@
                 guess.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("your guess> " + guess.value);
-                        Module.stdinBuffer.set(guess.value);
+                        worker.postMessage(guess.value);
                         guess.value = "";
                     };
                 })
@@ -37,9 +26,11 @@
                     result.value += text + "\n";
                     result.scrollTop = result.scrollHeight;
                 }
+
+//                worker.onmessage = (e) => { console.log(e.data) };
+                worker.onmessage = (e) => { add_output(e.data); };
             });
         </script>
-        <script src="guess.js" type="text/javascript"></script>
     </head>
     <body>
         <br>

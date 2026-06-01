@@ -6,26 +6,17 @@
         <script type="text/javascript">
             var Module = {
                 stdinBuffer: {
-                    str: 7,
+                    str: "",
                     index: 0,
-                    set: function (str) {
+                    set: function(str) {
                         this.str = str + "\n";
                         this.index = 0;
                     },
                 },
-/*                stdoutBuffer: {
-                    str: "",
-                    flush: function () {
-                        Module.read_stdout(this.str);
-                        this.str = "";
-                    },
+                stdin: function() {
+                    let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
+                    return isNaN(code) ? null : code;
                 },
-*/               stdin: function() {
-                        let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
-                        console.log(code);
-//                        return isNaN(code) ? null : code;
-                    return 57;
-                    },
                 print: (text) => { console.log(text) },
                 printErr: (err) => { console.warn("MaLa wasm error: ", err); },
                 onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
@@ -48,10 +39,6 @@
                     result.value += text + "\n";
                     result.scrollTop = result.scrollHeight;
                 }
-
-//                Module.print = add_output;
-//                Module.print(text) = console.log(text);
-//                Module.read_stdout = add_output;
             });
         </script>
         <script src="guess.js" type="text/javascript"></script>
@@ -62,6 +49,6 @@
         <input type="text" id="guess" size="50" placeholder="Please enter your guess (1-100)">
         <br>
         <h4>Output</h4>
-        <textarea id="result" rows="50" cols="100" readonly> </textarea>
+        <textarea id="result" rows="50" cols="80" readonly> </textarea>
     </body>
 </html>

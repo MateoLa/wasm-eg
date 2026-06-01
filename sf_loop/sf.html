@@ -5,20 +5,24 @@
         <link rel="icon" type="image/x-icon" href="sf_128.png">
         <script type="text/javascript">
             var Module = {
-                preRun: function() {
-                    function stdin() {
-//                        let code = input.str.charCodeAt(input.index++);
-//                        return isNaN(code) ? null : code;
-                        return 77;
-                    };
-
-                    FS.init(stdin, null, null);
+                stdinBuffer: {
+                    str: "",
+                    index: 0,
+                    set: function (str) {
+                        this.str = str + "\n";
+                        this.index = 0;
+                    },
                 },
-                send_command: (data) => { Module.wasm_uci_execute(data) },
-                onRuntimeInitialized: function() {
+                stdin: function() {
+                    let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
+                    console.log(code);
+                    return isNaN(code) ? null : code;
+                },
+                print: (text) => { console.log(text) },
+                printErr: (err) => { console.warn("MaLa wasm error: ", err); },
+                onRuntimeInitialized: function() { 
                     console.log('Module loaded: ', Module);
-//                    const wasm_uci_execute = Module.cwrap("wasm_uci_execute", "void", []);
-                    Module.wasm_uci_execute("");
+                    Module.wasm_uci_execute("uci");
                 }
             };
         </script>
@@ -32,11 +36,10 @@
                     output.scrollTop = output.scrollHeight;
                 }
 
-                Module.read_stdout = add_output;
 
                 function send_command() {
                     add_output("input> " + command.value);
-                    Module.send_command(command.value);
+                    Module.stdinBuffer.set(command.value);
                     command.value = "";
                 }
 

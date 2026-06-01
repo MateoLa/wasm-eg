@@ -99,26 +99,34 @@ We modify pong.js to call the binded function by the glue code. `Module.getAIMov
 Embind supports binding classes, pointers, arrays, smart pointers, memory views, inheritance and polymorphism.<br>
 Also you can write JS functions inside C/C++. This type of js block must be declared using `EM_JS` emscripten tool and can be called from the C++ code.
 
+And thus, we have owr ping-pong game running in a browser <br>
 
-#### C/C++ Game runing in a browser
+Here we are sending user inputs (up & down arrows keys) from JS to the C program in the `Move` variable <br>
+But what about games that runs in blocking modes? For example, those that wait for stdin inputs (like stockfish)?
+
+
+#### C/C++ std::cin runing in a browser?
 
 <div align="center">
 
 <img src="assets/ask.png" width="150" height="150"/>
 
 <h4>Guessing Game example</h4>
+<p>Can we going to guess something in a browser?</p>
 
 </div>
 
-C++ loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser tab to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
+Here we going to learn how to use C/C++ std::cin related functions in browsers.
 
-The `guess.cpp` code works on desktop but it will crash in the browser. The `while` loop and also the `std::cin >> userGuess;` statement inside the loop blocks the browser's main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+C++ loops designed to run indefinitely (e.g., game loops waiting for user input) will cause the browser to hang and eventually crash. This is because the loop prevents control from returning to the browser's event loop.
 
-Test the C++ program from the terminal:
+The `guess.cpp` code works on desktop but it will crash in the browser. The C++ `while loop` and the `std::cin >> userGuess;` statement blocks the browser's main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
+
+Optionally test the C++ program from the terminal:
 ```sh
 cd guess/hangs
-g++ guess.cpp -o myprogram
-./myprogram
+g++ guess.cpp -o c-program
+./c-program
 ```
 
 Compile with emscripten and navigate to the web page:
@@ -128,19 +136,26 @@ emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-Emscripten solves this by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls.
+Emscripten `FS.stdin` is binded to a JS `window.popup` that is automatically fired when you try to read something with C++ `std::cin`. `Module.stdin` rewrites the WebAssembly FS.stdin function avoithing the window.popup. The `FS.stdin` function is low-level and handles input character-by-character. It is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
 
-Obs: From now on, test your C/C++ program from the terminal before compiling with Emscripten.
+Rewriting "FS.stdin" through "FS.init" in `Module.preRun` function, although it is documented, it is discouraged by the Emscripten developers and is expected to be discontinued.
+
+At this point you could check that the program hangs due to the while loop problem commented erlier.
+
+##### NoComm
+
+Emscripten try to solve the "while" loop problem by telling the runtime to call a specified function periodically. `emscripten_set_main_loop()` allows the browser to handle other tasks and events between calls.
 
 ```sh
-cd guess/hangs2
+cd guess/nocomm
 emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
 In emscripten_set_main_loop(function, int fps, int s_i_l):
 
-`function` is a pointer to the C function that will serve as the main loop iteration. It must have a void return type and accept void as an argument.
+`function` is a pointer to the C function that will serve as the main loop iteration. It must have a void return type and accept void as an argument. <br>
+If it outputs something to std::cout, this will be printed continuosly and every time the loop runs.
 
 `fps` is the desired number of calls per second. Setting 0 or a negative value is highly recommended for rendering applications. This uses the browser's requestAnimationFrame mechanism, which ensures smooth rendering synchronized with the monitor's refresh rate.
 
@@ -148,21 +163,63 @@ In emscripten_set_main_loop(function, int fps, int s_i_l):
 If true (1), the function throws an exception in JavaScript to immediately stop execution of the calling C main() function, preventing any shutdown code from running prematurely and effectively simulating an infinite loop.<br>
 If false (0), execution continues in the main() function after the call to emscripten_set_main_loop.
 
-We can also use the version with a user-defined argument "void emscripten_set_main_loop_arg(function, void *arg, int fps, int s_i_l)".
+We use the version with a user-defined argument "void emscripten_set_main_loop_arg(function, void *arg, int fps, int s_i_l)".
 
-In the Module.preRun, we rewrite the WebAssembly `FS.stdin` function. This avoid the JS `window.popup` that is automatically binded to C++ `std::cin`. <br>
-The `FS.stdin` function is low-level and handles input character-by-character. It is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
+But now we face another problem. The glue code `<script src="guess.js" type="text/javascript"></script>` is downloaded and initialized before the DOM content loads so we can't print out to the page. 
 
-Obs: If the "function" from the emscripten_set_main_loop outputs something to std::cout, this will be printed continuosly and every time the loop runs.
+To solve this, we're going to modularize the connection code so we can instantiate it at any time.
 
-Obs: Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread of the borwser. JS cannot perform synchronous blocking I/O without hanging the entire page. Emscripten stdin defaults to always instantly return EOF. <br>
+##### Runs
+
+```sh
+cd guess/runs
+emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
+emrun guess.html --no_emrun_detect
+```
+
+
+
+
+
+
+Obs: Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread. JS cannot perform synchronous blocking I/O without hanging the entire page. Emscripten stdin defaults to always instantly return EOF. <br>
 To fix this, choose one of the following approaches:
   - Direct Communication: use Module.ccall or Module.cwrap to send strings or buffers directly to your C++ functions.
-  - Pthreads + Proxy. run your main function in a background web worker allowing the heavy blocking behavior.
+  - Pthreads + Proxy. Run your main function in a background web worker allowing the heavy blocking behavior.
   - Abandon `while(std::cin)` loop entirely.
 
 
+#### Guessing Game. 
 
+<div align="center">
+
+<img src="assets/hat.png" width="150" height="150"/>
+
+<h4>Web Workers</h4>
+<h4>std::cin runing in background</h4>
+
+</div>
+
+Web Workers are a simple means for web content to run scripts in background threads. The worker thread can perform tasks without interfering with the user interface.
+
+Now we can block the worker thread (we can use std::cin) without any consequence to the main browser's thread (the browser's event loop).<br>
+So, we can return to the first guess.cpp blocking C++ function.
+
+Let's modularize the Module. Compiling with `-s MODULARIZE=1` the Module variable is now a factory function that returns a promise
+
+```sh
+cd guess/runs
+emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
+emrun guess.html --no_emrun_detect
+```
+
+Obs: In the guess.cpp main loop we need to check when an input occurs `if (std::cin >> userGuess)` otherwise the program is continuously reading "something" from stdin and outputing something.
+
+
+
+The `pre.js` file adds to Module the functions needed to communicate with the WebAssembly Worker.<br>
+`ENVIRONMENT=worker` restricts the rntime environment to a worker removing calls to window or the DOM.<br>
+`EXPORT_ES6` if your envirionment supports ES6 modules.
 
 
 
@@ -194,6 +251,16 @@ emrun sf.html --no_emrun_detect
 [Wasm Workers](/docs/wasm_workers.md) <br>
 
 
-#### Lesson
+#### Notes
 
-In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
+Lesson: To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
+
+Lesson: In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
+
+Lesson: Web worker vs Service worker - While both run in background threads and cannot directly access the DOM, they serve completely different roles in a web application. The simplest way to think about it is that Web-workers are for speed and performance, while Service-worker are for reliability (network proxy) and offline features. Web-workers are not for PWA while Service-worker is Core for Push Notifications and Background Sync.
+
+Lesson: Web Workers typically do not have a dedicated entry in the console Application tab. To find them, go to the Sources tab and look for a "Threads" section.
+
+Lesson: To programmatically write to a C++ program waiting for stdin, you typically use pipes. The purpose of a pipe is to attach the stdout of one program to the stdin of another program.
+
+Lesson: The JS glue code automatically fetches and downloads the .wasm file for you in the browser using modern APIs like WebAssembly.instantiateStreaming.You do not need to manually download i to your local machine before loading the page.
