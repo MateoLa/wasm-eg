@@ -17,6 +17,7 @@
                     let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
                     return isNaN(code) ? null : code;
                 },
+                preRun: () => { FS.init(stdin, null, null); },
                 print: (text) => { console.log(text) },
                 printErr: (err) => { console.warn("MaLa wasm error: ", err); },
                 onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }

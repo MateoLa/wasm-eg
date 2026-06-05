@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>C++ Game</title>
+        <link rel="icon" type="image/x-icon" href="ask.png">
+        <script type="module">
+            import xx from "./guess.js"
+
+            window.addEventListener('DOMContentLoaded', () => {
+                var guess = document.getElementById("guess");
+                var result = document.getElementById("result");
+                var guessModule;
+
+                var Module = {
+                    stdinBuffer: {
+                        str: "",
+                        index: 0,
+                        set: function(str) {
+                            this.str = str + "\n";
+                            this.index = 0;
+                        },
+                    },
+                    stdin: function() {
+                        let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
+                        console.log("Jelouuu");
+                        return isNaN(code) ? null : code;
+                    },
+                    preRun: (mod) => { mod.FS.init(stdin, null, null); },
+                    print: (text) => { add_output(text) },
+                    printErr: (err) => { console.warn("MaLa wasm error: ", err); },
+                    onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
+                };
+
+                // Initialize the module with your options xx(options)
+                xx(Module).then((instance) => {
+                    // Use your module instance here
+                    console.log("Module fully loaded and ready.");
+                    guessModule = instance;
+                });
+
+                guess.addEventListener("keydown", function(event) {
+                    if (event.key === "Enter") {
+                        add_output("your guess> " + guess.value);
+                        guessModule.stdinBuffer.set(guess.value);
+                        guess.value = "";
+                    };
+                })
+
+                function add_output(text) {
+                    result.value += text + "\n";
+                    result.scrollTop = result.scrollHeight;
+                }
+            });
+        </script>
+    </head>
+    <body>
+        <br>
+        <p>Welcome to the Number Guessing Game!</p>
+        <input type="text" id="guess" size="50" placeholder="Please enter your guess (1-100)">
+        <br>
+        <h4>Output</h4>
+        <textarea id="result" rows="50" cols="80" readonly> </textarea>
+    </body>
+</html>

@@ -165,25 +165,28 @@ If false (0), execution continues in the main() function after the call to emscr
 
 We use the version with a user-defined argument "void emscripten_set_main_loop_arg(function, void *arg, int fps, int s_i_l)".
 
-But now we face another problem. The glue code `<script src="guess.js" type="text/javascript"></script>` is downloaded and initialized before the DOM content loads so we can't print out to the page. 
+But now we face another problem. The glue code `<script src="guess.js" type="text/javascript"></script>` is downloaded and initialized before the DOM content is loaded so we won't find find any way to write to our web page. 
 
-To solve this, we're going to modularize the connection code so we can instantiate it at any time.
+To solve this, we're going to modularize the glue code so we can instantiate it at any time.
 
-##### Runs
+
+##### NoRun
 
 ```sh
-cd guess/runs
-emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
+cd guess/norun
+emcc guess.cpp -o guess.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 -s FORCE_FILESYSTEM=1 -s EXPORTED_RUNTIME_METHODS="['FS']" --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
+`-s FORCE_FILESYSTEM=1` forces Emscripten to bundle the complete JavaScript file system library (MEMFS by default) even if the compiled C/C++ source code doesn't strictly call functions like fopen or std::ifstream.
+
+`-s EXPORTED_RUNTIME_METHODS=["FS"]` export FS explicitly to make FS available in a modularized build.
+
+Obs: I coudn't find a way to make C++ std::cin to call JS FS.stdin.
 
 
-
-
-
-Obs: Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread. JS cannot perform synchronous blocking I/O without hanging the entire page. Emscripten stdin defaults to always instantly return EOF. <br>
-To fix this, choose one of the following approaches:
+Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread. JS cannot perform synchronous blocking I/O without hanging the entire page. <br>
+To use std::cin directly choose one of the following approaches:
   - Direct Communication: use Module.ccall or Module.cwrap to send strings or buffers directly to your C++ functions.
   - Pthreads + Proxy. Run your main function in a background web worker allowing the heavy blocking behavior.
   - Abandon `while(std::cin)` loop entirely.
@@ -233,7 +236,8 @@ The `pre.js` file adds to Module the functions needed to communicate with the We
 
 </div>
 
-In this example we going to emulate the communication from the browser with Stockfish. <br>
+And finally here we are. <br>
+We going to emulate the communication between the browser and Stockfish. <br>
 Let's see how its main loop is supposed to work.
 
 ```sh
