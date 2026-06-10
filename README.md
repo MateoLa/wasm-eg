@@ -122,13 +122,6 @@ C++ loops designed to run indefinitely (e.g., game loops waiting for user input)
 
 The `guess.cpp` code works on desktop but it will crash in the browser. The C++ `while loop` and the `std::cin >> userGuess;` statement blocks the browser's main thread, creating the perceived "infinite loop" problem from the browser's perspective. 
 
-Optionally test the C++ program from the terminal:
-```sh
-cd guess/hangs
-g++ guess.cpp -o c-program
-./c-program
-```
-
 Compile with emscripten and navigate to the web page:
 ```sh
 cd guess/hangs
@@ -136,7 +129,8 @@ emcc guess.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-Emscripten `FS.stdin` is binded to a JS `window.popup` that is automatically fired when you try to read something with C++ `std::cin`. `Module.stdin` rewrites the WebAssembly FS.stdin function avoithing the window.popup. The `FS.stdin` function is low-level and handles input character-by-character. It is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
+Emscripten `FS.stdin` is binded to a JS `window.popup` that is automatically fired when you try to read something with C++ `std::cin`.<br>
+`Module["stdin"]` rewrites the WebAssembly FS.stdin function avoithing the window.popup. The `FS.stdin` function is low-level and handles input character-by-character. It is a callback that is invoked synchronously every time your C++ code tries to pull a character from std::cin.
 
 Rewriting "FS.stdin" through "FS.init" in `Module.preRun` function, although it is documented, it is discouraged by the Emscripten developers and is expected to be discontinued.
 
@@ -148,7 +142,8 @@ Emscripten try to solve the "while" loop problem by telling the runtime to call 
 
 ```sh
 cd guess/nocomm
-emcc guess.cpp -o guess.js --std=c++17
+emcc guess.cpp -o guess.js --std=c++17  
+# emcc guess1.cpp -o guess.js --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
@@ -165,32 +160,30 @@ If false (0), execution continues in the main() function after the call to emscr
 
 We use the version with a user-defined argument "void emscripten_set_main_loop_arg(function, void *arg, int fps, int s_i_l)".
 
-But now we face another problem. The glue code `<script src="guess.js" type="text/javascript"></script>` is downloaded and initialized before the DOM content is loaded so we won't find find any way to write to our web page. 
+But now we face another problem. The glue code is downloaded and initialized before the DOM renders so we won't find any way to write out to our page. We won't bind Module["print"] to the add_output() function.
 
 To solve this, we're going to modularize the glue code so we can instantiate it at any time.
 
+Obs: To override FS.stdin you must use Module["stdin"] with quotation marks. You should also clear C++ and C stream flags with `std::cin.clear()` and `std::clearerr(stdin)` after eof().
 
-##### NoRun
+
+##### Run
 
 ```sh
 cd guess/norun
-emcc guess.cpp -o guess.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 -s FORCE_FILESYSTEM=1 -s EXPORTED_RUNTIME_METHODS="['FS']" --std=c++17
+emcc guess.cpp -o guess.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-`-s FORCE_FILESYSTEM=1` forces Emscripten to bundle the complete JavaScript file system library (MEMFS by default) even if the compiled C/C++ source code doesn't strictly call functions like fopen or std::ifstream.
+And thus, with the help of emscripten_set_main_loop, we have the first working version of the Guessing Game <br>
+This method could be useful in games that permanently display some result or action on the console, but it introduces a delay for others that don't require interruptions and needs to perform complex calculations (like stockfish).
 
-`-s EXPORTED_RUNTIME_METHODS=["FS"]` export FS explicitly to make FS available in a modularized build.
-
-Obs: I coudn't find a way to make C++ std::cin to call JS FS.stdin.
-
-
-Reading `std::cin` directly from the browser's main thread fails because it is not allowed to block for user input in the main thread. JS cannot perform synchronous blocking I/O without hanging the entire page. <br>
-To use std::cin directly choose one of the following approaches:
+As we saw erlier, reading `std::cin` from the browser's main thread fails because JS cannot perform synchronous blocking I/O without hanging the entire page. To use std::cin directly you can choose between one of the following approaches:
   - Direct Communication: use Module.ccall or Module.cwrap to send strings or buffers directly to your C++ functions.
   - Pthreads + Proxy. Run your main function in a background web worker allowing the heavy blocking behavior.
   - Abandon `while(std::cin)` loop entirely.
 
+We going to run owr C++ module in a (background) Web Worker where we can block its thread.  
 
 #### Guessing Game. 
 
@@ -257,14 +250,18 @@ emrun sf.html --no_emrun_detect
 
 #### Notes
 
-Lesson: To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
+[^Lesson]: To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
 
-Lesson: In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
+[^Lesson]: In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
 
-Lesson: Web worker vs Service worker - While both run in background threads and cannot directly access the DOM, they serve completely different roles in a web application. The simplest way to think about it is that Web-workers are for speed and performance, while Service-worker are for reliability (network proxy) and offline features. Web-workers are not for PWA while Service-worker is Core for Push Notifications and Background Sync.
+[^Lesson]: Web worker vs Service worker - While both run in background threads and cannot directly access the DOM, they serve completely different roles in a web application. The simplest way to think about it is that Web-workers are for speed and performance, while Service-worker are for reliability (network proxy) and offline features. Web-workers are not for PWA while Service-worker is Core for Push Notifications and Background Sync.
 
-Lesson: Web Workers typically do not have a dedicated entry in the console Application tab. To find them, go to the Sources tab and look for a "Threads" section.
+[^Lesson]: Web Workers typically do not have a dedicated entry in the console Application tab. To find them, go to the Sources tab and look for a "Threads" section.
 
-Lesson: To programmatically write to a C++ program waiting for stdin, you typically use pipes. The purpose of a pipe is to attach the stdout of one program to the stdin of another program.
+[^Lesson]: To programmatically write to a C++ program waiting for stdin, you typically use pipes. The purpose of a pipe is to attach the stdout of one program to the stdin of another program.
 
-Lesson: The JS glue code automatically fetches and downloads the .wasm file for you in the browser using modern APIs like WebAssembly.instantiateStreaming.You do not need to manually download i to your local machine before loading the page.
+[^Lesson]: The JS glue code automatically fetches and downloads the .wasm file for you in the browser using modern APIs like WebAssembly.instantiateStreaming.You do not need to manually download i to your local machine before loading the page.
+
+[^Lesson]: C++ EAGAIN is often raised when performing non-blocking I/O. It means "there is no data available right now, try again later". It might (or might not) be the same as EWOULDBLOCK, which means "your thread would have to block in order to do that".
+
+[^Lesson]: es6 basics: Arrow functions do not bind their own "this" context. 

@@ -4,17 +4,23 @@
         <title>C++ Game</title>
         <link rel="icon" type="image/x-icon" href="ask.png">
         <script type="text/javascript">
-            var stdinBuffer = "";
-            var Module = { 
+            var stdinBuffer = {
+                str: "Hello\nWorld!\n",
+                index: 0,
+                set: function(str) {
+                    this.str = str + "\n";
+                    this.index = 0;
+                },
+            };
+            var Module = {
                 "stdin": function() {
-                    let code = stdinBuffer.charCodeAt(0);
-                    stdinBuffer = stdinBuffer.slice(1);                    
+                    let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
                     return isNaN(code) ? null : code;
                 },
                 print: (text) => { console.log(text) },
                 printErr: (err) => { console.warn("MaLa wasm error: ", err); },
-                onRuntimeInitialized: function() { console.log('Module loaded: ', Module); },
-        }
+                onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
+            };
         </script>
         <script type="text/javascript">
             window.addEventListener('DOMContentLoaded', () => {
@@ -24,7 +30,7 @@
                 guess.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("your guess> " + guess.value);
-                        stdinBuffer = guess.value;
+                        stdinBuffer.set(guess.value);
                         guess.value = "";
                     };
                 })

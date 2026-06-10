@@ -1426,6 +1426,7 @@ async function createWasm() {
       return 0;
     };
 
+
   var PATH = {
   isAbs:(path) => path.charAt(0) === '/',
   splitPath:(filename) => {
@@ -4671,9 +4672,9 @@ function checkIncomingModuleAPI() {
 }
 
 // Imports from the Wasm binary.
+var _strerror = makeInvalidEarlyAccess('_strerror');
 var _main = Module['_main'] = makeInvalidEarlyAccess('_main');
 var _fflush = makeInvalidEarlyAccess('_fflush');
-var _strerror = makeInvalidEarlyAccess('_strerror');
 var _emscripten_stack_init = makeInvalidEarlyAccess('_emscripten_stack_init');
 var _emscripten_stack_get_free = makeInvalidEarlyAccess('_emscripten_stack_get_free');
 var _emscripten_stack_get_base = makeInvalidEarlyAccess('_emscripten_stack_get_base');
@@ -4687,9 +4688,9 @@ var wasmMemory = makeInvalidEarlyAccess('wasmMemory');
 var wasmTable = makeInvalidEarlyAccess('wasmTable');
 
 function assignWasmExports(wasmExports) {
+  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
   assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
   assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
-  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
   assert(typeof wasmExports['emscripten_stack_init'] != 'undefined', 'missing Wasm export: emscripten_stack_init');
   assert(typeof wasmExports['emscripten_stack_get_free'] != 'undefined', 'missing Wasm export: emscripten_stack_get_free');
   assert(typeof wasmExports['emscripten_stack_get_base'] != 'undefined', 'missing Wasm export: emscripten_stack_get_base');
@@ -4699,9 +4700,9 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['emscripten_stack_get_current'] != 'undefined', 'missing Wasm export: emscripten_stack_get_current');
   assert(typeof wasmExports['memory'] != 'undefined', 'missing Wasm export: memory');
   assert(typeof wasmExports['__indirect_function_table'] != 'undefined', 'missing Wasm export: __indirect_function_table');
+  _strerror = createExportWrapper('strerror', 1);
   _main = Module['_main'] = createExportWrapper('main', 2);
   _fflush = createExportWrapper('fflush', 1);
-  _strerror = createExportWrapper('strerror', 1);
   _emscripten_stack_init = wasmExports['emscripten_stack_init'];
   _emscripten_stack_get_free = wasmExports['emscripten_stack_get_free'];
   _emscripten_stack_get_base = wasmExports['emscripten_stack_get_base'];
@@ -4728,6 +4729,8 @@ var wasmImports = {
   environ_get: _environ_get,
   /** @export */
   environ_sizes_get: _environ_sizes_get,
+  /** @export */
+  exit: _exit,
   /** @export */
   fd_close: _fd_close,
   /** @export */

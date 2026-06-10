@@ -14,7 +14,6 @@
 
 using namespace std;
 
-
 /**
  * The main loop handler called repeatedly by the browser's event loop.
  * It must have a void* parameter
@@ -22,32 +21,37 @@ using namespace std;
 void one_frame(void * _secretNumber){
     // Convert back the void pointer into an integer
     const auto secretNumber = static_cast<int*>(_secretNumber);
+    static bool first_line = true;
+    std::string userGuess;
 
-    int userGuess;
-/*
-    if (getline(std::cin, userGuess)) {
-        std::cout << "MaLa: you have entered: " << userGuess << std::endl;
-    };
-*/
-    if (std::cin >> userGuess) {
-        if (userGuess < *secretNumber) {
-            std::cout << "Too low! Try a higher number.\n" << std::endl;
-        } else if (userGuess > *secretNumber) {
-            std::cout << "Too high! Try a lower number.\n" << std::endl;
-        } else if (userGuess == *secretNumber) {
-            std::cout << "Congratulations! You guessed the correct number.\n" << std::endl;
-            emscripten_cancel_main_loop();
+    errno = 0;
+    while (errno != EAGAIN) {
+        if (first_line) {
+            char c;
+            if (std::cin.get(c)) {
+                std::cout.put(c);
+                if (c == '\n') {
+                    first_line = false;
+                }
+            }
+        } else {
+            if (getline(std::cin, userGuess)) {
+                std::cout << userGuess << "\n";
+            }
         }
-    };
 
-    if (std::cin.fail() && !std::cin.eof()) {
-        cerr << "error " << strerror(errno) << "\n";
-        exit(EXIT_FAILURE);
-    };
+        if (std::cin.fail() && !std::cin.eof()) {
+            if (errno != EAGAIN) {
+                cerr << "error " << strerror(errno) << "\n";
+                exit(EXIT_FAILURE);
+            }
+            std::cin.clear();
+        }
 
-    if (std::cin.eof()) {
-        std::cin.clear();
-        std::clearerr(stdin);
+        if (std::cin.eof()) {
+            std::cout << "eof\n";
+            exit(EXIT_SUCCESS);
+        }
     }
 }
 
@@ -63,7 +67,7 @@ int main(){
     std::cout << "Please enter a guess (1-100): " << std::endl;
 
     #ifdef EMSCRIPTEN
-        emscripten_set_main_loop_arg(one_frame, &secretNumber, 60, 1);
+        emscripten_set_main_loop_arg(one_frame, &secretNumber, 10, 1);
     #else
         while (1) {
             one_frame(&secretNumber);

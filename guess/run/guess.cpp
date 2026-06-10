@@ -19,15 +19,9 @@ void cancel_emscripten() {
  * It must have a void* parameter
  */
 void one_frame(void * _secretNumber){
-    // Convert back the void pointer into an integer
     const auto secretNumber = static_cast<int*>(_secretNumber);
-
     int userGuess;
 
-    if (std::cin >> userGuess) {
-        std::cout << "MaLa: you have entered: " << userGuess << std::endl;
-    };
-/*
     if (std::cin >> userGuess) {
         if (userGuess < *secretNumber) {
             std::cout << "Too low! Try a higher number.\n" << std::endl;
@@ -38,7 +32,11 @@ void one_frame(void * _secretNumber){
             cancel_emscripten();
         }
     };
-*/
+
+    if (std::cin.eof()) {
+        std::cin.clear();
+        std::clearerr(stdin);
+    }
 }
 
 
