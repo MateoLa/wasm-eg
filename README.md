@@ -254,18 +254,18 @@ emrun sf.html --no_emrun_detect
 
 #### Notes
 
-[^Lesson]: To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
+[!Lesson] To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
 
-[^Lesson]: In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
+[!Lesson]: In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
 
-[^Lesson]: Web worker vs Service worker - While both run in background threads and cannot directly access the DOM, they serve completely different roles in a web application. The simplest way to think about it is that Web-workers are for speed and performance, while Service-worker are for reliability (network proxy) and offline features. Web-workers are not for PWA while Service-worker is Core for Push Notifications and Background Sync.
+[!Lesson]: Web worker vs Service worker - While both run in background threads and cannot directly access the DOM, they serve completely different roles in a web application. The simplest way to think about it is that Web-workers are for speed and performance, while Service-worker are for reliability (network proxy) and offline features. Web-workers are not for PWA while Service-worker is Core for Push Notifications and Background Sync.
 
-[^Lesson]: Web Workers typically do not have a dedicated entry in the console Application tab. To find them, go to the Sources tab and look for a "Threads" section.
+[!Lesson]: Web Workers typically do not have a dedicated entry in the console Application tab. To find them, go to the Sources tab and look for a "Threads" section.
 
-[^Lesson]: To programmatically write to a C++ program waiting for stdin, you typically use pipes. The purpose of a pipe is to attach the stdout of one program to the stdin of another program.
+[!Lesson]: To programmatically write to a C++ program waiting for stdin, you typically use pipes. The purpose of a pipe is to attach the stdout of one program to the stdin of another program.
 
-[^Lesson]: The JS glue code automatically fetches and downloads the .wasm file for you in the browser using modern APIs like WebAssembly.instantiateStreaming.You do not need to manually download i to your local machine before loading the page.
+[!Lesson]: The JS glue code automatically fetches and downloads the .wasm file for you in the browser using modern APIs like WebAssembly.instantiateStreaming.You do not need to manually download i to your local machine before loading the page.
 
-[^Lesson]: C++ EAGAIN is often raised when performing non-blocking I/O. It means "there is no data available right now, try again later". It might (or might not) be the same as EWOULDBLOCK, which means "your thread would have to block in order to do that".
+[!Lesson]: C++ EAGAIN is often raised when performing non-blocking I/O. It means "there is no data available right now, try again later". It might (or might not) be the same as EWOULDBLOCK, which means "your thread would have to block in order to do that".
 
-[^Lesson]: es6 basics: Arrow functions do not bind their own "this" context. 
+[!Lesson]: es6 basics: Arrow functions do not bind their own "this" context. 
