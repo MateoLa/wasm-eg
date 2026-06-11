@@ -216,14 +216,14 @@ Use `EXPORT_ES6` if your envirionment supports ES6 modules.
 When the worker thread is blocked by a synchronous C++ I/O operation, its event loop stops. This means it cannot process incoming postMessage() events or callbacks until the C++ operation finishes.<br>
 We have verified that there is no way to send anything to the worker thread blocked by std::cin without using some interrupt method (asyncify, emscripten_set_main_loop).
 
-We going to focus in stockfish I/O method, avoiding std::cin usage and running each iteration of the loop in a (exported) one step function.<br>
-The easiest way to do this is by using emscripten bindings.
-
 ```sh
 cd worker
 emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
 emrun guess.html --no_emrun_detect
 ```
+
+Here we are focusing in stockfish I/O comm method. We avoid std::cin usage and run each loop iteration in aa exported one step function.<br>
+The easiest way to do this is by using emscripten bindings.
 
 
 #### Stockfish Wasm Communications
