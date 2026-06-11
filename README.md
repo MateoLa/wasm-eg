@@ -204,7 +204,7 @@ Now we can block the worker thread (we can use std::cin) without any consequence
 So, we can return to use the first guess.cpp blocking C++ program.
 
 ```sh
-cd guess/wkr-hangs
+cd guess/worker-hangs
 emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
 emrun guess.html --no_emrun_detect
 ```
@@ -216,16 +216,14 @@ Use `EXPORT_ES6` if your envirionment supports ES6 modules.
 When the worker thread is blocked by a synchronous C++ I/O operation, its event loop stops. This means it cannot process incoming postMessage() events or callbacks until the C++ operation finishes.<br>
 We have verified that there is no way to send anything to the worker thread blocked by std::cin without using some interrupt method (asyncify, emscripten_set_main_loop).
 
-We going to focus in stockfish I/O method, avoiding std::cin usage and running each iteration of the loop in an exported one step function.<br>
+We going to focus in stockfish I/O method, avoiding std::cin usage and running each iteration of the loop in a (exported) one step function.<br>
 The easiest way to do this is by using emscripten bindings.
 
 ```sh
-cd guess/worker
+cd worker
 emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
 emrun guess.html --no_emrun_detect
 ```
-
-
 
 
 #### Stockfish Wasm Communications
@@ -234,20 +232,17 @@ emrun guess.html --no_emrun_detect
 
 <img src="assets/sf_128.png" width="150" height="150"/>
 
-<h4>Stockfish Web Integration example</h4>
+<h4>Focus in Stockfish I/O communication</h4>
 
 </div>
 
-And finally here we are. <br>
-We going to emulate the communication between the browser and Stockfish. <br>
-Let's see how its main loop is supposed to work.
+Broadly speaking, Stockfish is state machine that holds its state in a UCI::Engine class. It returns a chess position evaluation after a movement input. In C++ it runs in a "uci_loop()" function waiting for user inputs. In browsers, we can initialize the engine and execute one loop step in each movement.
 
 ```sh
-cd sf_loop
-emcc sf.cpp -o sf.js --std=c++17 --bind
+cd sf
+emcc sf.cpp -o sf.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
 emrun sf.html --no_emrun_detect
 ```
-
 
 
 #### Docs

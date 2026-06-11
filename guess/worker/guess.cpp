@@ -14,14 +14,22 @@ std::optional<int> secretNumber = std::nullopt;
 
 
 // Only one iteration of the original loop.
-void one_frame(int userGuess){
-    if (secretNumber.empty()) { return {}; }
+void one_frame(std::string userGuess){
+    int guess;
 
-    if (userGuess < *secretNumber) {
+    try {
+        guess = std::stoi(userGuess);
+    } catch(const std::exception& e) {
+        std::cerr << "MaLa C++ std exception: " << e.what() << std::endl;
+    }
+
+    if (secretNumber == std::nullopt) { return; };
+
+    if (guess < *secretNumber) {
         std::cout << "Too low! Try a higher number.\n" << std::endl;
-    } else if (userGuess > *secretNumber) {
+    } else if (guess > *secretNumber) {
         std::cout << "Too high! Try a lower number.\n" << std::endl;
-    } else if (userGuess == *secretNumber) {
+    } else if (guess == *secretNumber) {
         std::cout << "Congratulations! You guessed the correct number.\n" << std::endl;
         secretNumber.reset();
     };

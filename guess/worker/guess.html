@@ -5,9 +5,7 @@
         <link rel="icon" type="image/x-icon" href="ask.png">
         <script type="text/javascript">
             const worker = new Worker('/worker.js', { type: 'module' });
-            worker.onerror = (event) => {
-                console.log("MaLa worker error: ", event);
-            }
+            worker.onerror = (event) => { console.log("MaLa worker error: ", event.message); };
 
             window.addEventListener('DOMContentLoaded', () => {
                 var guess = document.getElementById("guess");

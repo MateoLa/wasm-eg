@@ -4,59 +4,36 @@
         <title>SF Wasm</title>
         <link rel="icon" type="image/x-icon" href="sf_128.png">
         <script type="text/javascript">
-            var Module = {
-                stdinBuffer: {
-                    str: "",
-                    index: 0,
-                    set: function (str) {
-                        this.str = str + "\n";
-                        this.index = 0;
-                    },
-                },
-                stdin: function() {
-                    let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
-                    console.log(code);
-                    return isNaN(code) ? null : code;
-                },
-                print: (text) => { console.log(text) },
-                printErr: (err) => { console.warn("MaLa wasm error: ", err); },
-                onRuntimeInitialized: function() { 
-                    console.log('Module loaded: ', Module);
-                    Module.wasm_uci_execute("uci");
-                }
-            };
-        </script>
-        <script type="text/javascript">
-            window.addEventListener('DOMContentLoaded', (event) => {
-                const output = document.getElementById("output");
-                const command = document.getElementById("command");
+            const worker = new Worker('/worker.js', { type: 'module' });
+            worker.onerror = (event) => { console.log("MaLa worker error: ", event.message); };
+
+            window.addEventListener('DOMContentLoaded', () => {
+                var command = document.getElementById("command");
+                var output = document.getElementById("output");
+
+                command.addEventListener("keydown", function(event) {
+                    if (event.key === "Enter") {
+                        add_output("Your input> " + command.value);
+                        worker.postMessage(command.value);
+                        command.value = "";
+                    };
+                })
 
                 function add_output(text) {
                     output.value += text + "\n";
                     output.scrollTop = output.scrollHeight;
                 }
 
-
-                function send_command() {
-                    add_output("input> " + command.value);
-                    Module.stdinBuffer.set(command.value);
-                    command.value = "";
-                }
-
-                command.addEventListener("keydown", (event) => {
-                    if (event.key === "Enter") send_command();
-                });
-            });
+                worker.onmessage = (e) => { add_output(e.data); };
+         });
         </script>
-        <script src="sf.js" type="text/javascript"></script>
     </head>
 
     <body>
         <br>
         <input type="text" id="command" size="50" placeholder="Please enter an UCI command">
-        <input type="button" value="SendCommand" onclick="send_command()" />
         <br />
         <h4>Output</h4>
-        <textarea id="output" readonly rows="50" cols="100"> </textarea>
+        <textarea id="output" readonly rows="50" cols="80"> </textarea>
     </body>    
 </html>
