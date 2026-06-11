@@ -254,7 +254,8 @@ emrun sf.html --no_emrun_detect
 
 #### Notes
 
-> [!NOTE] To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
+> [!NOTE] 
+> To call a function in a WebAssembly module running inside a Web Worker, you use the standard Web Worker postMessage API to send data from the main thread to the worker, which then invokes the Wasm function locally and sends the result back.
 
 > [!Lesson] In C++, a variable that is not explicitly initialized will automativally assume whatever arbitrary value happens to be sitting in its allocated memory space. This "garbage value" can result in unpredictable bugs or crashes.
 
