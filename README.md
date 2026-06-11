@@ -167,13 +167,15 @@ To solve this, we're going to modularize the glue code so we can instantiate it 
 Obs: To override FS.stdin you must use Module["stdin"] with quotation marks. You should also clear C++ and C stream flags with `std::cin.clear()` and `std::clearerr(stdin)` after eof().
 
 
-##### Run
+##### Runs
 
 ```sh
-cd guess/norun
+cd guess/runs
 emcc guess.cpp -o guess.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
 emrun guess.html --no_emrun_detect
 ```
+
+Compiling with `-s MODULARIZE=1` the Module variable is now a factory function that returns a promise
 
 And thus, with the help of emscripten_set_main_loop, we have the first working version of the Guessing Game <br>
 This method could be useful in games that permanently display some result or action on the console, but it introduces a delay for others that don't require interruptions and needs to perform complex calculations (like stockfish).
@@ -199,23 +201,30 @@ We going to run owr C++ module in a (background) Web Worker where we can block i
 Web Workers are a simple means for web content to run scripts in background threads. The worker thread can perform tasks without interfering with the user interface.
 
 Now we can block the worker thread (we can use std::cin) without any consequence to the main browser's thread (the browser's event loop).<br>
-So, we can return to the first guess.cpp blocking C++ function.
-
-Let's modularize the Module. Compiling with `-s MODULARIZE=1` the Module variable is now a factory function that returns a promise
+So, we can return to use the first guess.cpp blocking C++ program.
 
 ```sh
-cd guess/runs
+cd guess/wkr-hangs
 emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
 emrun guess.html --no_emrun_detect
 ```
 
-Obs: In the guess.cpp main loop we need to check when an input occurs `if (std::cin >> userGuess)` otherwise the program is continuously reading "something" from stdin and outputing something.
+`ENVIRONMENT=worker` restricts the runtime environment to a worker removing calls to JS window or the DOM.<br>
+Use `EXPORT_ES6` if your envirionment supports ES6 modules.
+`pre.js` adds the functions needed to communicate with the WebAssembly Worker.<br>
 
+When the worker thread is blocked by a synchronous C++ I/O operation, its event loop stops. This means it cannot process incoming postMessage() events or callbacks until the C++ operation finishes.<br>
+We have verified that there is no way to send anything to the worker thread blocked by std::cin without using some interrupt method (asyncify, emscripten_set_main_loop).
 
+We going to focus in stockfish I/O method, avoiding std::cin usage and running each iteration of the loop in an exported one step function.<br>
+The easiest way to do this is by using emscripten bindings.
 
-The `pre.js` file adds to Module the functions needed to communicate with the WebAssembly Worker.<br>
-`ENVIRONMENT=worker` restricts the rntime environment to a worker removing calls to window or the DOM.<br>
-`EXPORT_ES6` if your envirionment supports ES6 modules.
+```sh
+cd guess/worker
+emcc guess.cpp -o guess.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
+emrun guess.html --no_emrun_detect
+```
+
 
 
 

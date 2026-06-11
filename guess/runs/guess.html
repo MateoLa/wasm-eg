@@ -9,7 +9,6 @@
             window.addEventListener('DOMContentLoaded', () => {
                 var guess = document.getElementById("guess");
                 var result = document.getElementById("result");
-                var guessModule;
 
                 var stdinBuffer = {
                     str: "",
@@ -33,7 +32,6 @@
                 xx(Module).then((instance) => {
                     // Use your module instance here
                     console.log("Module fully loaded and ready.");
-                    guessModule = instance;
                 });
 
                 guess.addEventListener("keydown", function(event) {
