@@ -16,7 +16,7 @@
                 guess.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("Your guess> " + guess.value);
-                        worker.postMessage(guess.value);
+                        send_message(guess.value);
                         guess.value = "";
                     };
                 })
@@ -27,6 +27,8 @@
                 }
 
                 worker.onmessage = (e) => { add_output(e.data); };
+
+                send_message = (text) => { while (text) worker.postMessage(text.split("").shift()); }
          });
         </script>
     </head>

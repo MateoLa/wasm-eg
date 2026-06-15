@@ -1,18 +1,11 @@
 import xx from "./guess.js"
 
 
-var stdinBuffer = {
-    str: "Hello\nWorld!\n",
-    index: 0,
-    set: function(str) {
-        this.str = str + "\n";
-        this.index = 0;
-    }
-};
 var Module = {
     "stdin": function() {
-        let code = stdinBuffer.str.charCodeAt(stdinBuffer.index++);
-        return isNaN(code) ? null : code;
+        let ascii;
+        self.onmessage = (e) => { ascii = e.data.charCodeAt(0); };
+        return isNaN(ascii) ? null : ascii;
     },
     print: (text) => { self.postMessage(text) },
     printErr: (err) => { console.warn("MaLa wasm error: ", err); },
@@ -26,8 +19,8 @@ xx(Module).then((instance) => {
     console.log("Module fully loaded and ready.");
 });
 
-self.onmessage = (e) => {
-    stdinBuffer.set(e.data);
-}
+
+self.onmessage = (e) => { Module.stdin(e.data.charCodeAt(0)); };
+
 
 

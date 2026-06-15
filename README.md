@@ -213,7 +213,7 @@ emrun guess.html --no_emrun_detect
 Use `EXPORT_ES6` if your envirionment supports ES6 modules.
 `pre.js` adds the functions needed to communicate with the WebAssembly Worker.<br>
 
-When the worker thread is blocked by a synchronous C++ I/O operation, its event loop stops. This means it cannot process incoming postMessage() events or callbacks until the C++ operation finishes.<br>
+When the worker thread is blocked by a synchronous C++ I/O operation, its event loop stops. This means it cannot process any incoming message event or callback until the C++ operation finishes. Remember that, the worker `onmessage` event is equivalent to `myWorker.addEventListener("message", funciton(event) {...}` <br>
 We have verified that there is no way to send anything to the worker thread blocked by std::cin without using some interrupt method (asyncify, emscripten_set_main_loop).
 
 ```sh
