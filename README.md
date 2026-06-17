@@ -236,13 +236,31 @@ The easiest way to do this is by using emscripten bindings.
 
 </div>
 
-Broadly speaking, Stockfish is state machine that holds its state in a UCI::Engine class. It returns a chess position evaluation after a movement input. In C++ it runs in a "uci_loop()" function waiting for user inputs. In browsers, we can initialize the engine and execute one loop step in each movement.
+Broadly speaking, Stockfish is a state machine that holds its state in a UCI::Engine class. It returns a chess position evaluation after each game movement. In C++ it runs in a "uci_loop()" function waiting for user inputs. In a browser, we need to initialize the engine and execute one loop step in each movement.
 
 ```sh
-cd sf
+cd uciLoop
+emcc sf.cpp -o sf.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17
+emrun sf.html --no_emrun_detect
+```
+
+Analyzing the logs of this case we can see that Emscripten, unlike std::cin which blocks JS, getline(std::cin, x) immediately returns an EOF signal. This halts the loop execution and exits the program. 
+
+We need to execute the loop, while the engine is still running, using another input method. <br>
+We will avoid waiting for stdin and only check for a "quit" command.
+
+```sh
+cd noStdin
 emcc sf.cpp -o sf.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
 emrun sf.html --no_emrun_detect
 ```
+
+If we run the loop in the main JS thread we again face the problem explained [here]. <br>
+If we run the loop in a JS worker we could see an infinite "MaLa: Unknown command" output to the console. <br>
+If we comment the line `else  std::cout << "MaLa: Unknown command" << std::endl;` we block the thread until an uci_loop is called.
+
+
+
 
 
 #### Docs

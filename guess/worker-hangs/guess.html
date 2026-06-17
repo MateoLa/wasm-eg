@@ -5,9 +5,8 @@
         <link rel="icon" type="image/x-icon" href="ask.png">
         <script type="text/javascript">
             const worker = new Worker('/worker.js', { type: 'module' });
-            worker.onerror = (event) => {
-                console.log("MaLa worker error: ", event);
-            }
+            worker.onerror = (event) => { console.log("MaLa worker error: ", event); }
+
 
             window.addEventListener('DOMContentLoaded', () => {
                 var guess = document.getElementById("guess");
@@ -16,7 +15,7 @@
                 guess.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("Your guess> " + guess.value);
-                        send_message(guess.value);
+                        worker.postMessage(guess.value.split('').map(c => c.charCodeAt(0)));
                         guess.value = "";
                     };
                 })
@@ -27,8 +26,6 @@
                 }
 
                 worker.onmessage = (e) => { add_output(e.data); };
-
-                send_message = (text) => { while (text) worker.postMessage(text.split("").shift()); }
          });
         </script>
     </head>

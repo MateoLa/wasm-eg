@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SF Wasm</title>
+        <link rel="icon" type="image/x-icon" href="sf_128.png">
+        <script type="module">
+            import xx from "./sf.js"
+
+            var stdinBuff = 'Hello\nworld!\n'.split('').map(c => c.charCodeAt(0));
+
+            window.addEventListener('DOMContentLoaded', () => {
+                var command = document.getElementById("command");
+                var output = document.getElementById("output");
+
+                var Module = {
+                    "stdin": () => stdinBuff.shift() || null,
+                    print: (text) => { add_output(text) },
+                    printErr: (err) => { console.warn("MaLa wasm error: ", err); },
+                    onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
+                };
+
+                // Initialize the module with your options xx(options)
+                xx(Module).then((instance) => {
+                    // Use your module instance here
+                    console.log("Module fully loaded and ready.");
+                });
+
+                command.addEventListener("keydown", function(event) {
+                    if (event.key === "Enter") {
+                        add_output("Your input> " + command.value);
+                        stdinBuff = command.value.split('').map(c => c.charCodeAt(0));
+                        command.value = "";
+                    };
+                })
+
+                function add_output(text) {
+                    output.value += text + "\n";
+                    output.scrollTop = output.scrollHeight;
+                }
+            });
+        </script>
+    </head>
+
+    <body>
+        <br>
+        <input type="text" id="command" size="50" placeholder="Please enter an UCI command">
+        <br />
+        <h4>Output</h4>
+        <textarea id="output" readonly rows="50" cols="80"> </textarea>
+    </body>    
+</html>

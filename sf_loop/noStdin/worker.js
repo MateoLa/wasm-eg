@@ -11,6 +11,6 @@ let Module = {
 // Initialize the module with your options xx(options)
 xx(Module).then((instance) => { engine = instance });
 
-self.onmessage = (e) => { engine.wasm_uci_execute(e.data); }
+self.onmessage = (e) => { engine.uci_loop(e.data); }
 
 

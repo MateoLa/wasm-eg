@@ -2,11 +2,8 @@ import xx from "./guess.js"
 
 
 var Module = {
-    "stdin": function() {
-        let ascii;
-        self.onmessage = (e) => { ascii = e.data.charCodeAt(0); };
-        return isNaN(ascii) ? null : ascii;
-    },
+    stdinBuff: [],
+    "stdin": () => stdinBuff.shift() || null,
     print: (text) => { self.postMessage(text) },
     printErr: (err) => { console.warn("MaLa wasm error: ", err); },
     onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
@@ -20,7 +17,7 @@ xx(Module).then((instance) => {
 });
 
 
-self.onmessage = (e) => { Module.stdin(e.data.charCodeAt(0)); };
+self.onmessage = (e) => { Module.stdinBuff = e.data; };
 
 
 
