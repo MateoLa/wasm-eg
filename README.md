@@ -246,19 +246,22 @@ emrun sf.html --no_emrun_detect
 
 Analyzing the logs of this case we can see that Emscripten, unlike std::cin which blocks JS, getline(std::cin, x) immediately returns an EOF signal. This halts the loop execution and exits the program. 
 
-We need to execute the loop, while the engine is still running, using another input method. <br>
-We will avoid waiting for stdin and only check for a "quit" command.
+We need to use another input method. We will avoid waiting for stdin and only check for a "quit" command. <br>
+If we do this running the loop the main JS thread or any other thread will be blocked as we explained [here]. <br>
+To do this outside the loop, by running only one iteration step, we must ensure that the engine (stockfish) continues to run.
+
+Each method has its own difficulty. <br>
+To communicate with a blocked thread in JavaScript, standard event-driven message channels like postMessage will fail because the blocked thread's event loop cannot trigger callback listeners. The only way to bypass the event loop and read or write data to a blocked thread is by using SharedArrayBuffer and Atomics to read directly from raw, shared memory. <br>
+If main() just initializes an object and exits, pass `-s EXIT_RUNTIME=0` to the compiler. This keeps your WebAssembly memory, global objects, and classes alive after main() completes, allowing JavaScript to call your methods later.
+
 
 ```sh
-cd noStdin
-emcc sf.cpp -o sf.js -s ENVIRONMENT=worker -s MODULARIZE=1 -s EXPORT_ES6=1 --std=c++17 --bind
+cd oneStep
+emcc sf.cpp -o sf.js -s ENVIRONMENT="web,worker" -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXIT_RUNTIME=0 --std=c++17 --bind
 emrun sf.html --no_emrun_detect
 ```
 
-If we run the loop in the main JS thread we again face the problem explained [here]. <br>
-If we run the loop in a JS worker we could see an infinite "MaLa: Unknown command" output to the console. <br>
-If we comment the line `else  std::cout << "MaLa: Unknown command" << std::endl;` we block the thread until an uci_loop is called.
-
+Here we run only one loop iteration step, avoiding any FS.stdin usage. 
 
 
 

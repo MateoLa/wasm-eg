@@ -3,18 +3,32 @@
     <head>
         <title>SF Wasm</title>
         <link rel="icon" type="image/x-icon" href="sf_128.png">
-        <script type="text/javascript">
-            const worker = new Worker('/worker.js', { type: 'module' });
-            worker.onerror = (event) => { console.log("MaLa worker error: ", event.message); };
+        <script type="module">
+            import xx from "./sf.js"
+
+            var sf;
 
             window.addEventListener('DOMContentLoaded', () => {
                 var command = document.getElementById("command");
                 var output = document.getElementById("output");
 
+                var Module = {
+                    print: (text) => { add_output(text) },
+                    printErr: (err) => { console.warn("MaLa C++ error: ", err); },
+                    onRuntimeInitialized: function() { console.log('Module loaded: ', Module); }
+                };
+
+                // Initialize the module with your options xx(options)
+                xx(Module).then((instance) => {
+                    // Use your module instance here
+                    console.log("Module fully loaded and ready.");
+                    sf = instance;
+                });
+
                 command.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("Your input> " + command.value);
-                        worker.postMessage(command.value);
+                        sf.one_step(command.value);
                         command.value = "";
                     };
                 })
@@ -23,8 +37,6 @@
                     output.value += text + "\n";
                     output.scrollTop = output.scrollHeight;
                 }
-
-                worker.onmessage = (e) => { add_output(e.data); };
             });
         </script>
     </head>
