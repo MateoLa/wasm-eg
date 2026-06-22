@@ -22,12 +22,13 @@
                 xx(Module).then((instance) => {
                     // Use your module instance here
                     console.log("Module fully loaded and ready.");
-                    sf = instance;
+                    sf = new instance.Engine;
                 });
 
                 command.addEventListener("keydown", function(event) {
                     if (event.key === "Enter") {
                         add_output("Your input> " + command.value);
+                        console.log(sf.add());
                         sf.one_step(command.value);
                         command.value = "";
                     };
